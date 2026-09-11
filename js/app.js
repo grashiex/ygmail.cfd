@@ -379,11 +379,28 @@
     const html = sanitizeHtml(m.bodyHtml || "");
     const text = m.bodyText || stripTags(m.bodyHtml || m.body || "");
     const iframe = $("#body-html");
+    iframe.style.height = "";
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        const h = Math.max(
+          doc.body ? doc.body.scrollHeight : 0,
+          doc.documentElement ? doc.documentElement.scrollHeight : 0,
+          240
+        );
+        iframe.style.height = `${h + 24}px`;
+      } catch {
+        iframe.style.height = "60vh";
+      }
+    };
     iframe.srcdoc = wrapEmailHtml(
       html ||
         `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
     );
-    if (!skipScroll) $("#reading-view").scrollTop = 0;
+    if (!skipScroll) {
+      const pane = $("#reading-view");
+      if (pane) pane.scrollTop = 0;
+    }
   }
 
   function stripTags(html) {
@@ -393,9 +410,11 @@
   }
 
   function wrapEmailHtml(inner) {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      body{margin:16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#111;background:#fff;word-break:break-word}
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+      html,body{margin:0;padding:0}
+      body{margin:16px;font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111;background:#fff;word-break:break-word;overflow-wrap:anywhere}
       a{color:#0b57d0} img{max-width:100%;height:auto}
+      table{max-width:100%!important}
     </style></head><body>${inner}</body></html>`;
   }
 

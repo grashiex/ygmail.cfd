@@ -520,12 +520,45 @@ a {
 
   .reading-pane.mobile-open {
     display: flex;
+    flex-direction: column;
     position: fixed;
     inset: 0;
     z-index: 80;
     background: var(--bg);
     padding-bottom: env(safe-area-inset-bottom, 0);
-    min-height: 100dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .reading-pane.mobile-open .reading-view.open {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+
+  .reading-pane.mobile-open .reading-header {
+    flex-shrink: 0;
+  }
+
+  .reading-pane.mobile-open .reading-extracts {
+    flex-shrink: 0;
+  }
+
+  .reading-pane.mobile-open .reading-body {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-bottom: 2rem;
+  }
+
+  /* Auto-sized in JS so the outer pane scrolls (iframe nest doesn't trap touch) */
+  .reading-pane.mobile-open .body-frame {
+    min-height: 240px;
+    height: auto;
   }
 
   .mobile-back {
@@ -1039,7 +1072,9 @@ a {
 .reading-body {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
   padding: 1.25rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .body-tabs {
@@ -1065,6 +1100,7 @@ a {
 .body-frame {
   width: 100%;
   min-height: 280px;
+  height: min(60vh, 520px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #fff;
