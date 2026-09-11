@@ -129,7 +129,19 @@ function extractHtml_(raw) {
 }
 
 function decodeQuoted_(s) {
-  return s.replace(/=\\r?\\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  const unfolded = String(s || '').replace(/=\\r?\\n/g, '');
+  const bytes = [];
+  for (let i = 0; i < unfolded.length; ) {
+    if (unfolded[i] === '=' && i + 2 < unfolded.length && /^[0-9A-Fa-f]{2}$/.test(unfolded.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(unfolded.slice(i + 1, i + 3), 16));
+      i += 3;
+    } else {
+      bytes.push(unfolded.charCodeAt(i) & 0xff);
+      i += 1;
+    }
+  }
+  try { return new TextDecoder('utf-8').decode(Uint8Array.from(bytes)); }
+  catch { return unfolded; }
 }
 `,
 };
