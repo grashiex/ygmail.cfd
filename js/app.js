@@ -50,9 +50,34 @@
   }
 
   function currentAddress() {
-    const prefix = ($("#prefix-input").value || "").trim() || APP_CONFIG.defaultPrefix;
+    const prefix = ($("#prefix-input").value || "").trim();
     const domain = $("#domain-select").value || domains()[0];
+    if (!prefix) return "";
     return `${prefix}@${domain}`;
+  }
+
+  function contactAdminLink() {
+    return (
+      prefs().contactAdminLink ||
+      APP_CONFIG.contactAdminLink ||
+      APP_CONFIG.footerLink ||
+      "#"
+    );
+  }
+
+  function contactAdminLabel() {
+    return (
+      prefs().contactAdminLabel ||
+      APP_CONFIG.contactAdminLabel ||
+      "Contact admin"
+    );
+  }
+
+  function applyContactAdmin() {
+    const a = $("#gate-admin-link");
+    if (!a) return;
+    a.href = contactAdminLink();
+    a.textContent = contactAdminLabel();
   }
 
   // ---------- Branding ----------
@@ -72,6 +97,7 @@
 
     applyBackground();
     applyFooter();
+    applyContactAdmin();
   }
 
   function applyFooter() {
@@ -194,17 +220,25 @@
     icon.style.animation = "spin 0.7s linear infinite";
 
     try {
+      const address = currentAddress();
+      if (!address) {
+        state.messages = [];
+        renderList();
+        if (!silent) toast("Enter a username first", "error");
+        return;
+      }
+
       let messages;
       if (isDemoMode()) {
-        messages = DemoData.getMessages(currentAddress());
+        messages = DemoData.getMessages(address);
       } else {
-        messages = await Api.listEmails(currentAddress());
+        messages = await Api.listEmails(address);
       }
       state.messages = messages.map((m) => {
         const extracted =
           typeof Extractors !== "undefined" && Extractors.analyze
             ? Extractors.analyze(m)
-            : { codes: [], links: [] };
+            : { codes: [], links: [], linkItems: [] };
         return { ...m, ...extracted };
       });
       renderList();
@@ -232,10 +266,15 @@
     $("#mail-count").textContent = `${count} message${count === 1 ? "" : "s"}`;
 
     if (!count) {
+      const addr = currentAddress();
       list.innerHTML = `
         <li class="empty-state">
           <h3>No messages</h3>
-          <p>Mail sent to <code>${escapeHtml(currentAddress())}</code> will appear here.</p>
+          <p>${
+            addr
+              ? `Mail sent to <code>${escapeHtml(addr)}</code> will appear here.`
+              : "Enter a <strong>username</strong> above, then tap Refresh Inbox."
+          }</p>
         </li>`;
       return;
     }
@@ -251,8 +290,18 @@
               `<button type="button" class="pill pill-otp" data-copy="${escapeAttr(c)}" title="Copy code">${escapeHtml(c)} ⧉</button>`
           )
           .join("");
-        const links = (m.links || []).length
-          ? `<button type="button" class="pill pill-link" data-open="${escapeAttr(m.links[0])}">Open Link ↗</button>`
+        const linkItems =
+          m.linkItems && m.linkItems.length
+            ? m.linkItems
+            : (m.links || []).map((u) => ({
+                url: u,
+                label:
+                  typeof Extractors !== "undefined" && Extractors.linkLabel
+                    ? Extractors.linkLabel(u)
+                    : "Open Access Link",
+              }));
+        const links = linkItems.length
+          ? `<button type="button" class="pill pill-link" data-open="${escapeAttr(linkItems[0].url)}">${escapeHtml(linkItems[0].label)} ↗</button>`
           : "";
 
         return `
@@ -308,9 +357,19 @@
         `<button type="button" class="pill pill-otp" data-copy="${escapeAttr(c)}">OTP ${escapeHtml(c)} ⧉</button>`
       );
     });
-    (m.links || []).forEach((u, i) => {
+    const linkItems =
+      m.linkItems && m.linkItems.length
+        ? m.linkItems
+        : (m.links || []).map((u) => ({
+            url: u,
+            label:
+              typeof Extractors !== "undefined" && Extractors.linkLabel
+                ? Extractors.linkLabel(u)
+                : "Open Access Link",
+          }));
+    linkItems.forEach((item) => {
       pills.push(
-        `<button type="button" class="pill pill-link" data-open="${escapeAttr(u)}">${i === 0 ? "Open Link" : "Link"} ↗</button>`
+        `<button type="button" class="pill pill-link" data-open="${escapeAttr(item.url)}">${escapeHtml(item.label)} ↗</button>`
       );
     });
     extracts.innerHTML = pills.length
@@ -428,8 +487,7 @@
   });
 
   // ---------- Identity bar ----------
-  $("#prefix-input").value =
-    Auth.getSettings().prefix || APP_CONFIG.defaultPrefix;
+  $("#prefix-input").value = Auth.getSettings().prefix || "";
 
   $("#btn-random").addEventListener("click", () => {
     $("#prefix-input").value = randomPrefix();
@@ -439,7 +497,12 @@
   });
 
   $("#btn-copy").addEventListener("click", () => {
-    copyText(currentAddress());
+    const addr = currentAddress();
+    if (!addr) {
+      toast("Enter a username first", "error");
+      return;
+    }
+    copyText(addr);
   });
 
   $("#btn-refresh").addEventListener("click", () => loadInbox());
@@ -491,6 +554,7 @@
   $("#btn-delete").addEventListener("click", deleteSelected);
   $("#btn-mobile-back").addEventListener("click", () => {
     $("#reading-pane").classList.remove("mobile-open");
+    clearReading();
   });
 
   // ---------- Themes + Customize ----------
@@ -539,6 +603,7 @@
     $("#set-brand").value = brandTitle();
     $("#set-logo").value = brandLogo().startsWith("data:") ? "" : brandLogo();
     $("#set-bg").value = backgroundUrl().startsWith("data:") ? "" : backgroundUrl();
+    $("#set-admin-link").value = contactAdminLink();
     $("#set-password").value = "";
     $("#set-password-confirm").value = "";
     $("#set-logo-file").value = "";
@@ -652,6 +717,10 @@
       brandTitle: $("#set-brand").value.trim() || APP_CONFIG.brandTitle,
       brandLogo: logo,
       backgroundUrl: bg,
+      contactAdminLink:
+        $("#set-admin-link").value.trim() ||
+        APP_CONFIG.contactAdminLink ||
+        "#",
       prefix: $("#prefix-input").value.trim(),
     };
     if (newPass) patch.password = newPass;

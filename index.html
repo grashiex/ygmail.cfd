@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/styles.css?v=20260912e" />
+    <link rel="stylesheet" href="/css/styles.css?v=20260912f" />
   </head>
   <body data-theme="dark-cyber">
     <!-- Password Gatekeeper -->
@@ -31,6 +31,12 @@
           <button type="submit" class="btn-primary">Unlock Inbox</button>
           <p class="gate-error" id="gate-error" aria-live="polite"></p>
         </form>
+        <p class="gate-admin" id="gate-admin">
+          Need help?
+          <a id="gate-admin-link" href="#" target="_blank" rel="noopener noreferrer"
+            >Contact admin</a
+          >
+        </p>
       </div>
     </div>
 
@@ -64,7 +70,7 @@
             id="prefix-input"
             spellcheck="false"
             autocomplete="off"
-            placeholder="username"
+            placeholder="Enter username"
             aria-label="Email prefix"
           />
           <span class="at">@</span>
@@ -178,6 +184,12 @@
         </div>
 
         <div class="field">
+          <label for="set-admin-link">Contact Admin Link (login screen)</label>
+          <input type="url" id="set-admin-link" placeholder="https://t.me/… or https://…" />
+          <p class="field-hint">Shown on the password screen as “Contact admin”.</p>
+        </div>
+
+        <div class="field">
           <label for="set-theme">Theme</label>
           <select id="set-theme" class="select" style="width: 100%">
             <option value="dark-cyber">Dark Cyber</option>
@@ -223,12 +235,12 @@
 
     <div id="toasts" aria-live="polite"></div>
 
-    <script src="/js/config.js?v=20260912e"></script>
-    <script src="/js/auth.js?v=20260912e"></script>
-    <script src="/js/themes.js?v=20260912e"></script>
-    <script src="/js/extractors.js?v=20260912e"></script>
-    <script src="/js/demo-data.js?v=20260912e"></script>
-    <script src="/js/api.js?v=20260912e"></script>
-    <script src="/js/app.js?v=20260912e"></script>
+    <script src="/js/config.js?v=20260912f"></script>
+    <script src="/js/auth.js?v=20260912f"></script>
+    <script src="/js/themes.js?v=20260912f"></script>
+    <script src="/js/extractors.js?v=20260912f"></script>
+    <script src="/js/demo-data.js?v=20260912f"></script>
+    <script src="/js/api.js?v=20260912f"></script>
+    <script src="/js/app.js?v=20260912f"></script>
   </body>
 </html>

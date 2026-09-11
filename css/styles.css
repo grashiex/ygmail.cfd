@@ -165,6 +165,23 @@ a {
   font-size: 0.9rem;
 }
 
+.gate-admin {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.gate-admin a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.gate-admin a:hover {
+  text-decoration: underline;
+}
+
 .gate-form {
   display: flex;
   flex-direction: column;
@@ -448,6 +465,10 @@ a {
   filter: brightness(1.1);
 }
 
+.mobile-back {
+  display: none;
+}
+
 /* ---------- Inbox layout ---------- */
 .inbox-layout {
   display: grid;
@@ -508,7 +529,31 @@ a {
   }
 
   .mobile-back {
-    display: inline-flex;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    min-height: 44px;
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    color: var(--accent);
+  }
+
+  .reading-actions {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding-top: 0.35rem;
+    padding-bottom: 0.55rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .reading-actions .mobile-back {
+    flex: 1 1 100%;
+    order: -1;
+    width: 100%;
   }
 
   .app-footer {
@@ -1036,10 +1081,6 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-panel);
-}
-
-.mobile-back {
-  display: none;
 }
 
 /* ---------- Modals / settings ---------- */

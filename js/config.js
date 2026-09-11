@@ -2,15 +2,19 @@
  * ═══════════════════════════════════════════════════════════
  *  SELLER CONFIG — ikaw lang mag-set ng backend + footer dito
  * ═══════════════════════════════════════════════════════════
- * Clients (Customize UI): logo, background, theme, password, brand title
- * Seller only (this file): googleScriptUrl, demoMode, domains, footer*
+ * Clients (Customize): logo, background, theme, password, brand, contact admin
+ * Seller only: googleScriptUrl, demoMode, domains, footer*
  */
 window.APP_CONFIG = {
   brandTitle: "ygmail.cfd",
   brandLogo: "",
   domains: ["ygmail.cfd"],
-  defaultPrefix: "business",
+  defaultPrefix: "", // blank — user types username
   defaultPassword: "grashiex123",
+
+  // Default contact admin (clients can change in Customize)
+  contactAdminLabel: "Contact admin",
+  contactAdminLink: "https://t.me/grashiex",
 
   // Footer — SELLER ONLY (not in Customize UI)
   footerName: "GRASHIEX",

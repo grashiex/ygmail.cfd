@@ -1,6 +1,6 @@
 /**
  * OTP / verification-code and activation-link extractors.
- * Strict: only clearly labeled codes — no random number/word noise.
+ * Strict OTPs + labeled access links (not random website URLs).
  */
 window.Extractors = (() => {
   const LABELED_CODE_RES = [
@@ -14,7 +14,7 @@ window.Extractors = (() => {
 
   const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
   const SKIP_HOSTS =
-    /(?:unsubscribe|privacy|terms|help\.|support\.|static\.|cdn\.|fonts\.|w3\.org|schema\.org)/i;
+    /(?:unsubscribe|privacy|terms|help\.|support\.|static\.|cdn\.|fonts\.|w3\.org|schema\.org|trail\.|tracking|pixel)/i;
 
   const WORD_BLOCKLIST = new Set(
     [
@@ -44,6 +44,8 @@ window.Extractors = (() => {
       "verify",
       "finish",
       "signing",
+      "netflix",
+      "create",
     ].map((w) => w.toUpperCase())
   );
 
@@ -57,6 +59,7 @@ window.Extractors = (() => {
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/gi, " ")
+      .replace(/&[a-z]+;/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -65,12 +68,17 @@ window.Extractors = (() => {
     if (!code) return false;
     const c = String(code).trim();
     if (!/^[A-Z0-9]{4,8}$/i.test(c)) return false;
-    if (/^(19|20)\d{2}$/.test(c)) return false; // years
-    if (/^0+$/.test(c)) return false; // 000000
+    if (/^(19|20)\d{2}$/.test(c)) return false;
+    if (/^0+$/.test(c)) return false;
     if (WORD_BLOCKLIST.has(c.toUpperCase())) return false;
-    // Prefer mostly-digit OTPs, or alphanumeric like Steam (must have a digit)
-    if (/^[A-Za-z]+$/.test(c)) return false; // pure words like Canva/Enter
-    return true;
+    if (/^[A-Za-z]+$/.test(c)) return false;
+    // Reject hex-looking tracking fragments (e.g. RF4MoG77 mixed random) unless labeled digit OTP
+    // Allow alphanumeric Steam-style only if has both letters and digits and length 5-8
+    if (/[A-Za-z]/.test(c) && /\d/.test(c) && !/^\d+$/.test(c)) {
+      // Steam-like: mostly fine if short; reject if looks like random id (many mixed case without "code" context handled by labeled only)
+      return true;
+    }
+    return /^\d{4,8}$/.test(c);
   }
 
   function extractFromLabeled(plain) {
@@ -102,9 +110,9 @@ window.Extractors = (() => {
           )
         : stripHtml(emailOrText);
 
-    // 1) Subject wins (e.g. "Your Canva code is 885460")
     const subjectHits = [];
     if (subject) {
+      // Subject with explicit "code is XXX" — prefer pure digits
       const sm = subject.match(SUBJECT_CODE_RE);
       if (sm) {
         const code = sm[1] || sm[2];
@@ -113,13 +121,25 @@ window.Extractors = (() => {
       subjectHits.push(...extractFromLabeled(subject));
     }
 
-    // 2) Body labeled only (no bare digit sweep)
     const bodyHits = extractFromLabeled(body);
-
     const ordered = unique([...subjectHits, ...bodyHits]);
-    // Exact: one best OTP when subject has it
+
+    // Prefer digit OTPs over alphanumeric when both exist
+    const digits = ordered.filter((c) => /^\d{4,8}$/.test(c));
+    if (digits.length) return digits.slice(0, 1);
     if (subjectHits.length) return unique(subjectHits).slice(0, 1);
     return ordered.slice(0, 1);
+  }
+
+  function linkLabel(url) {
+    const u = String(url).toLowerCase();
+    if (/activate|activation|create.?account|signup|sign-?up|register/i.test(u))
+      return "Open Access Link";
+    if (/verify|confirm|confirmation/i.test(u)) return "Open Verify Link";
+    if (/reset|recover|password/i.test(u)) return "Open Reset Link";
+    if (/login|sign-?in|auth|magic|token/i.test(u)) return "Open Login Link";
+    if (/netflix|account/i.test(u)) return "Open Access Link";
+    return "Open Access Link";
   }
 
   function extractLinks(text) {
@@ -138,26 +158,31 @@ window.Extractors = (() => {
     const scored = all
       .map((u) => {
         let score = 0;
-        if (/verify|confirm|activate|auth|login|token|magic|reset/i.test(u))
-          score += 3;
-        if (/click|action|account/i.test(u)) score += 1;
-        return { u, score };
+        if (/verify|confirm|activate|activation|signup|sign-?up|register|create/i.test(u))
+          score += 5;
+        if (/auth|login|token|magic|reset|account/i.test(u)) score += 3;
+        if (/netflix\.com|accounts\.|click|action/i.test(u)) score += 2;
+        // Prefer https action links over tracking
+        if (/trail\.|track|utm_/i.test(u)) score -= 3;
+        return { url: u, label: linkLabel(u), score };
       })
+      .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score);
 
-    return scored.map((s) => s.u).slice(0, 2);
+    // One best access link only — less confusion
+    return scored.slice(0, 1);
   }
 
   function analyze(email) {
+    const links = extractLinks(
+      [email.bodyHtml || "", email.bodyText || "", email.body || ""].join("\n")
+    );
     return {
       codes: extractCodes(email),
-      links: extractLinks(
-        [email.bodyHtml || "", email.bodyText || "", email.body || ""].join(
-          "\n"
-        )
-      ),
+      links: links.map((l) => l.url),
+      linkItems: links,
     };
   }
 
-  return { extractCodes, extractLinks, analyze };
+  return { extractCodes, extractLinks, analyze, linkLabel };
 })();
