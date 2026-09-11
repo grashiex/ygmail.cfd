@@ -2,6 +2,8 @@
  * Theme definitions and application logic.
  */
 window.Themes = (() => {
+  const DEFAULT_CUSTOM = ["#ff78b2", "#f472b6", "#e4f0fa", "#ffffff"];
+
   const PRESETS = {
     "dark-cyber": {
       id: "dark-cyber",
@@ -80,7 +82,9 @@ window.Themes = (() => {
   };
 
   function hexToRgb(hex) {
-    const h = hex.replace("#", "").trim();
+    const h = String(hex || "")
+      .replace("#", "")
+      .trim();
     const full =
       h.length === 3
         ? h
@@ -91,6 +95,22 @@ window.Themes = (() => {
     const n = parseInt(full, 16);
     if (Number.isNaN(n) || full.length !== 6) return null;
     return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+
+  function normalizeHex(raw) {
+    if (!raw || typeof raw !== "string") return null;
+    let h = raw.trim();
+    if (!h.startsWith("#")) h = `#${h}`;
+    const m = h.match(/^#([a-fA-F0-9]{3}|[a-fA-F0-9]{6})$/);
+    if (!m) return null;
+    if (m[1].length === 3) {
+      return `#${m[1]
+        .split("")
+        .map((c) => c + c)
+        .join("")
+        .toLowerCase()}`;
+    }
+    return `#${m[1].toLowerCase()}`;
   }
 
   function isLight(hex) {
@@ -106,28 +126,44 @@ window.Themes = (() => {
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`;
   }
 
+  /**
+   * Palette order (Custom UI):
+   * [primary, secondary, background, surface]
+   */
   function buildCustomVars(palette) {
-    const [bg = "#0a0a0a", panel = "#1a1a1a", accent = "#4ade80", text = "#f0f0f0"] =
-      palette;
-    const muted = isLight(text) ? rgba(text, 0.55) : rgba(text, 0.7);
+    const [
+      primary = DEFAULT_CUSTOM[0],
+      secondary = DEFAULT_CUSTOM[1],
+      background = DEFAULT_CUSTOM[2],
+      surface = DEFAULT_CUSTOM[3],
+    ] = palette || DEFAULT_CUSTOM;
+
+    const text = isLight(background) ? "#0f172a" : "#f8fafc";
+    const muted = isLight(background)
+      ? "rgba(15, 23, 42, 0.58)"
+      : "rgba(248, 250, 252, 0.58)";
+    const border = isLight(background)
+      ? "rgba(15, 23, 42, 0.12)"
+      : "rgba(248, 250, 252, 0.14)";
+
     return {
-      "--bg": bg,
-      "--bg-elevated": panel,
-      "--bg-panel": panel,
-      "--bg-hover": accent,
-      "--border": rgba(text, 0.15),
+      "--bg": background,
+      "--bg-elevated": surface,
+      "--bg-panel": surface,
+      "--bg-hover": rgba(primary, isLight(surface) ? 0.12 : 0.22),
+      "--border": border,
       "--text": text,
       "--text-muted": muted,
-      "--accent": accent,
-      "--accent-2": text,
-      "--accent-soft": rgba(accent, 0.18),
+      "--accent": primary,
+      "--accent-2": secondary,
+      "--accent-soft": rgba(primary, 0.18),
       "--danger": "#ff5c7a",
       "--success": "#2ee59d",
-      "--otp": accent,
-      "--link-badge": text,
-      "--glow": rgba(accent, 0.35),
-      "--grid": rgba(accent, 0.05),
-      "--modal-scrim": rgba(bg, 0.85),
+      "--otp": primary,
+      "--link-badge": secondary,
+      "--glow": rgba(primary, 0.35),
+      "--grid": rgba(primary, 0.05),
+      "--modal-scrim": rgba(background, 0.82),
     };
   }
 
@@ -140,13 +176,15 @@ window.Themes = (() => {
       /colorhunt\.co\/palette\/([a-fA-F0-9]{24})/i
     );
     if (hunt) {
-      const hexes = hunt[1].match(/.{6}/g).map((h) => `#${h}`);
-      return hexes;
+      return hunt[1].match(/.{6}/g).map((h) => `#${h.toLowerCase()}`);
     }
 
     const codes = trimmed.match(/#?[a-fA-F0-9]{6}|#?[a-fA-F0-9]{3}/g);
     if (!codes || codes.length < 4) return null;
-    return codes.slice(0, 4).map((c) => (c.startsWith("#") ? c : `#${c}`));
+    return codes
+      .slice(0, 4)
+      .map((c) => normalizeHex(c))
+      .filter(Boolean);
   }
 
   function applyVars(vars) {
@@ -157,7 +195,9 @@ window.Themes = (() => {
   function getSavedCustomPalette() {
     try {
       const raw = localStorage.getItem(APP_CONFIG.customPaletteKey);
-      return raw ? JSON.parse(raw) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!Array.isArray(parsed) || parsed.length < 4) return null;
+      return parsed.slice(0, 4).map((c) => normalizeHex(c) || c);
     } catch {
       return null;
     }
@@ -171,19 +211,17 @@ window.Themes = (() => {
     return localStorage.getItem(APP_CONFIG.themeKey) || "dark-cyber";
   }
 
-  function apply(themeId, customPalette) {
+  function defaultCustomPalette() {
+    return getSavedCustomPalette() || [...DEFAULT_CUSTOM];
+  }
+
+  /** Apply visually without writing localStorage (live preview). */
+  function preview(themeId, customPalette) {
     const id = themeId || getActiveId();
-    localStorage.setItem(APP_CONFIG.themeKey, id);
     document.body.dataset.theme = id;
 
     if (id === "custom") {
-      const palette = customPalette || getSavedCustomPalette() || [
-        "#0b1020",
-        "#151d33",
-        "#5eead4",
-        "#e2e8f0",
-      ];
-      if (customPalette) saveCustomPalette(palette);
+      const palette = customPalette || defaultCustomPalette();
       applyVars(buildCustomVars(palette));
       return { id, palette };
     }
@@ -193,17 +231,32 @@ window.Themes = (() => {
     return { id };
   }
 
+  /** Apply and persist. */
+  function apply(themeId, customPalette) {
+    const result = preview(themeId, customPalette);
+    localStorage.setItem(APP_CONFIG.themeKey, result.id);
+    if (result.id === "custom") {
+      saveCustomPalette(result.palette || defaultCustomPalette());
+    }
+    return result;
+  }
+
   function list() {
     return Object.values(PRESETS).map(({ id, label }) => ({ id, label }));
   }
 
   return {
     PRESETS,
+    DEFAULT_CUSTOM,
     list,
     apply,
+    preview,
     getActiveId,
     parsePaletteInput,
+    normalizeHex,
     getSavedCustomPalette,
     saveCustomPalette,
+    defaultCustomPalette,
+    buildCustomVars,
   };
 })();

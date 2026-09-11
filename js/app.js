@@ -584,16 +584,48 @@
   });
 
   // ---------- Themes + Customize ----------
+  let settingsThemeSnapshot = null;
+
+  const PAL_KEYS = ["primary", "secondary", "background", "surface"];
+
+  function readPaletteFromFields() {
+    const colors = PAL_KEYS.map((key) => {
+      const raw = $(`#pal-${key}`)?.value || "";
+      return Themes.normalizeHex(raw);
+    });
+    if (colors.every(Boolean)) return colors;
+    return null;
+  }
+
+  function fillPaletteFields(palette) {
+    const pal = palette || Themes.defaultCustomPalette();
+    PAL_KEYS.forEach((key, i) => {
+      const hex = Themes.normalizeHex(pal[i]) || Themes.DEFAULT_CUSTOM[i];
+      const text = $(`#pal-${key}`);
+      const swatch = $(`#pal-${key}-swatch`);
+      if (text) text.value = hex;
+      if (swatch) swatch.value = hex;
+    });
+    const bulk = $("#set-palette");
+    if (bulk) bulk.value = pal.join(" ");
+  }
+
+  function livePreviewCustom() {
+    if ($("#set-theme").value !== "custom") return;
+    const palette = readPaletteFromFields();
+    if (!palette) return;
+    Themes.preview("custom", palette);
+    const applyBtn = $("#btn-apply-palette");
+    if (applyBtn) applyBtn.style.background = palette[0];
+  }
+
   function syncThemeUI() {
     const id = Themes.getActiveId();
     $("#theme-select").value = id;
     if ($("#set-theme")) $("#set-theme").value = id;
     const wrap = $("#custom-palette-wrap");
     if (wrap) wrap.hidden = id !== "custom";
-    if (id === "custom") {
-      const pal = Themes.getSavedCustomPalette();
-      if (pal) $("#set-palette").value = pal.join(" ");
-    }
+    if (id === "custom") fillPaletteFields(Themes.getSavedCustomPalette());
   }
 
   function updateLogoPreview(src) {
@@ -626,6 +658,10 @@
   }
 
   function openSettings() {
+    settingsThemeSnapshot = {
+      id: Themes.getActiveId(),
+      palette: Themes.getSavedCustomPalette(),
+    };
     $("#set-brand").value = brandTitle();
     $("#set-logo").value = brandLogo().startsWith("data:") ? "" : brandLogo();
     $("#set-bg").value = backgroundUrl().startsWith("data:") ? "" : backgroundUrl();
@@ -636,12 +672,21 @@
     $("#set-bg-file").value = "";
     updateLogoPreview(brandLogo());
     syncThemeUI();
+    if ($("#set-theme").value === "custom") livePreviewCustom();
     $("#set-logo").dataset.dataUrl = brandLogo().startsWith("data:") ? brandLogo() : "";
     $("#set-bg").dataset.dataUrl = backgroundUrl().startsWith("data:") ? backgroundUrl() : "";
     $("#settings-modal").hidden = false;
   }
 
-  function closeSettings() {
+  function closeSettings({ revert = false } = {}) {
+    if (revert && settingsThemeSnapshot) {
+      Themes.preview(
+        settingsThemeSnapshot.id,
+        settingsThemeSnapshot.palette || undefined
+      );
+      $("#theme-select").value = settingsThemeSnapshot.id;
+    }
+    settingsThemeSnapshot = null;
     $("#settings-modal").hidden = true;
   }
 
@@ -652,13 +697,64 @@
   }
 
   $("#btn-settings").addEventListener("click", openSettings);
-  $("#btn-settings-cancel").addEventListener("click", closeSettings);
+  $("#btn-settings-cancel").addEventListener("click", () =>
+    closeSettings({ revert: true })
+  );
   $("#settings-modal").addEventListener("click", (e) => {
-    if (e.target === $("#settings-modal")) closeSettings();
+    if (e.target === $("#settings-modal")) closeSettings({ revert: true });
   });
 
   $("#set-theme").addEventListener("change", () => {
-    $("#custom-palette-wrap").hidden = $("#set-theme").value !== "custom";
+    const id = $("#set-theme").value;
+    $("#custom-palette-wrap").hidden = id !== "custom";
+    if (id === "custom") {
+      fillPaletteFields(Themes.getSavedCustomPalette());
+      livePreviewCustom();
+    } else {
+      Themes.preview(id);
+    }
+  });
+
+  PAL_KEYS.forEach((key) => {
+    const text = $(`#pal-${key}`);
+    const swatch = $(`#pal-${key}-swatch`);
+    if (!text || !swatch) return;
+
+    text.addEventListener("input", () => {
+      const hex = Themes.normalizeHex(text.value);
+      if (hex) swatch.value = hex;
+      livePreviewCustom();
+    });
+    text.addEventListener("blur", () => {
+      const hex = Themes.normalizeHex(text.value);
+      if (hex) {
+        text.value = hex;
+        swatch.value = hex;
+      }
+    });
+    swatch.addEventListener("input", () => {
+      text.value = swatch.value;
+      livePreviewCustom();
+    });
+  });
+
+  $("#set-palette").addEventListener("input", () => {
+    const parsed = Themes.parsePaletteInput($("#set-palette").value);
+    if (!parsed) return;
+    fillPaletteFields(parsed);
+    livePreviewCustom();
+  });
+
+  $("#btn-apply-palette").addEventListener("click", () => {
+    $("#set-theme").value = "custom";
+    $("#custom-palette-wrap").hidden = false;
+    const palette = readPaletteFromFields();
+    if (!palette) {
+      toast("Enter 4 valid hex colors", "error");
+      return;
+    }
+    Themes.preview("custom", palette);
+    toast("Previewing — tap Save to keep");
   });
 
   $("#set-logo").addEventListener("input", () => {
@@ -713,9 +809,11 @@
   $("#btn-settings-save").addEventListener("click", () => {
     const themeId = $("#set-theme").value;
     if (themeId === "custom") {
-      const parsed = Themes.parsePaletteInput($("#set-palette").value);
+      const parsed =
+        readPaletteFromFields() ||
+        Themes.parsePaletteInput($("#set-palette").value);
       if (!parsed) {
-        toast("Need 4 hex codes or a Color Hunt link", "error");
+        toast("Need 4 valid hex colors", "error");
         return;
       }
       Themes.apply("custom", parsed);
@@ -754,7 +852,8 @@
     Auth.saveSettings(patch);
     applyBranding();
     syncThemeUI();
-    closeSettings();
+    settingsThemeSnapshot = null;
+    closeSettings({ revert: false });
     toast("Customization saved");
   });
 
@@ -765,7 +864,8 @@
       openSettings();
       $("#set-theme").value = "custom";
       $("#custom-palette-wrap").hidden = false;
-      $("#set-palette").focus();
+      fillPaletteFields(Themes.getSavedCustomPalette());
+      livePreviewCustom();
     } else {
       Themes.apply(id);
       if ($("#set-theme")) $("#set-theme").value = id;

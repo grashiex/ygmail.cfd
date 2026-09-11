@@ -1,118 +1,135 @@
-# Seller Playbook — Setup per Client (walang Cursor/AI)
+# Seller Setup Guide — Simula umpisa hanggang handoff
 
-Sundin ito **bawat bagong client**. Ikaw lang ang magse-set. Client = password + Customize (logo/theme) lang.
+Sundin **nang sunod-sunod**. Pag natapos ito, **hindi mo na kailangan ng AI** para mag-setup ng bagong client.
 
----
-
-## Ano ang ibibigay mo sa client
-
-| Ibigay | Huwag ibigay / huwag ituro |
-|--------|----------------------------|
-| Site URL (hal. `https://clientdomain.cfd`) | Google Apps Script URL |
-| Inbox password | Cloudflare Worker / Email Routing |
-| Paano mag-Customize (logo, theme, password) | Footer (GRASHIEX) — **ikaw lang** sa `config.js` |
-| | `backend/`, playbooks (optional tanggalin sa zip) |
+**Live example:** `https://ygmail.cfd` · Repo: `grashiex/ygmail.cfd`
 
 ---
 
-## Checklist (overview)
+## Ano ang system na ito?
 
-1. Domain ng client → Cloudflare  
-2. Google Sheet + Apps Script (bagong sheet per client OK)  
-3. Cloudflare Worker + Catch-all → Worker  
-4. Kopyahin ang website files / bagong GitHub repo  
-5. I-edit `js/config.js`  
-6. GitHub Pages + custom domain  
-7. Test email → Refresh Inbox  
-8. Ibigay login sa client  
+```
+Email → Cloudflare Email Routing (catch-all)
+      → Worker (email-to-sheet)
+      → Google Apps Script Web App
+      → Google Sheet ("Inbox")
+      → Website (GitHub Pages) magbabasa ng list
+```
+
+| Bahagi | Para saan | Sino ang nagse-set |
+|--------|-----------|--------------------|
+| Domain + Cloudflare | DNS + email receive | **Ikaw (seller)** |
+| Google Sheet + Apps Script | Database + API | **Ikaw** |
+| Cloudflare Worker | Email → Sheet | **Ikaw** |
+| `js/config.js` | Script URL, domain, password, footer | **Ikaw** |
+| GitHub Pages | Website | **Ikaw** |
+| Customize UI | Logo, theme, password, contact admin | **Client** |
+
+**Huwag:** i-point ang domain sa Apps Script URL. Dapat **GitHub Pages** ang website. Apps Script = API lang (`/exec`).
+
+---
+
+## Checklist (bawat bagong client)
+
+1. [ ] Domain → Cloudflare (Active)
+2. [ ] Google Sheet + paste `backend/Code.gs` → Deploy Web App → kopyahin `/exec` URL
+3. [ ] Worker + paste `backend/worker.js` → variable `GAS_WEBAPP_URL`
+4. [ ] Email Routing → **Catch-all → Send to Worker**
+5. [ ] Test: send email → may row sa Sheet
+6. [ ] I-edit `js/config.js` (`demoMode: false` + Script URL + domain)
+7. [ ] GitHub Pages + custom domain (`CNAME`)
+8. [ ] Purge Cloudflare cache → open site → login → Refresh Inbox
+9. [ ] Ibigay sa client: URL + password lang
 
 ---
 
 ## STEP 1 — Domain sa Cloudflare
 
-1. Client may domain na (o ikaw bumili).  
-2. [dash.cloudflare.com](https://dash.cloudflare.com) → **Add a site** → Free.  
-3. Palitan ang **nameservers** sa registrar.  
-4. Hintayin **Active**.
+1. May domain na ang client (o ikaw bumili), hal. `clientdomain.cfd`.
+2. [dash.cloudflare.com](https://dash.cloudflare.com) → **Add a site** → Free plan.
+3. Palitan ang **nameservers** sa registrar (Namecheap / GoDaddy / etc.) papunta sa Cloudflare.
+4. Hintayin status = **Active**.
 
 ---
 
-## STEP 2 — Google Sheet + Apps Script (database + API)
+## STEP 2 — Google Sheet + Apps Script (database)
 
-1. [sheets.google.com](https://sheets.google.com) → **Blank spreadsheet**  
-   - Pangalan: `ClientName Inbox`  
-2. **Extensions → Apps Script**  
-3. Burahin ang default code.  
-4. I-paste ang buong laman ng file: `backend/Code.gs`  
-5. **Save** (Ctrl+S).  
-6. **Deploy → New deployment**:
-   - Type: **Web app**
+1. [sheets.google.com](https://sheets.google.com) → **Blank spreadsheet**.
+2. Pangalanan: `ClientName Inbox`.
+3. **Extensions → Apps Script**.
+4. Burahin ang default code.
+5. I-paste ang **buong** laman ng `backend/Code.gs` mula sa project.
+6. **Save** (Ctrl+S / Cmd+S).
+7. **Deploy → New deployment**:
+   - ⚙️ → type: **Web app**
    - Execute as: **Me**
    - Who has access: **Anyone**
-7. **Deploy** → Authorize (Allow).  
-8. **Kopyahin ang Web App URL** (`…/exec`) — ilalagay sa `config.js` later.  
-9. Test: buksan ang URL sa browser → dapat `{"ok":true,"emails":[]}`.
+8. **Deploy** → Authorize / Allow.
+9. **Kopyahin ang Web app URL** (dapat nagtatapos sa `/exec`).
+10. Test: buksan ang URL sa browser → dapat may JSON tulad ng:
 
-> **Important:** Huwag mag-paste ng `config.js` / HTML dito. `Code.gs` lang.
+```json
+{"ok":true,"emails":[]}
+```
+
+> Kapag nag-edit ka ulit ng `Code.gs` later: **Deploy → Manage deployments → Edit (pencil) → New version → Deploy**.
 
 ---
 
-## STEP 3 — Cloudflare Worker (email → Sheet)
+## STEP 3 — Cloudflare Worker (email → Script)
 
-### 3A. Worker (minsan isang Worker lang para sa lahat ng client — o isa per client)
-
-**Option A — Isang Worker, maraming client (mas madali):**  
-Same Worker `email-to-sheet`, same `GAS_WEBAPP_URL` **kung shared sheet**.  
-Para **hiwalay per client**, gumawa ng bagong Worker + bagong Script URL.
-
-**Option B — Per client (recommended kung ibebenta):**
-
-1. Cloudflare → **Workers & Pages** → **Create** → **Hello World** Worker.  
-2. Name: `email-clientname`  
-3. **Edit code** → paste `backend/worker.js` → **Deploy**.  
-4. **Settings → Variables**:
+1. Cloudflare → **Workers & Pages** → **Create** → Worker (Hello World OK).
+2. Name: `email-clientname` (o shared `email-to-sheet`).
+3. **Edit code** → burahin default → paste **buong** `backend/worker.js` → **Deploy**.
+4. Worker → **Settings → Variables and Secrets**:
    - Name: `GAS_WEBAPP_URL`
-   - Value: Web App URL mula Step 2  
-5. Save.
+   - Value: Web App URL mula Step 2
+5. Save / Deploy ulit kung kailangan.
 
-### 3B. Email Routing (domain ng client)
-
-1. Cloudflare → **client domain** → **Email → Email Routing** → Enable.  
-2. **Routing rules** → i-edit ang **Catch-all**:
-   - Action: **Send to a Worker**
-   - Worker: `email-clientname` (o shared worker)  
-3. **Save**.  
-4. (Optional) delete old Gmail forward / specific rules kung hindi kailangan.
-
-### 3C. Test ingest
-
-Mag-send sa `test@clientdomain.com` mula Gmail.  
-Hintay 10–30s → **Google Sheet → Inbox tab** → dapat may row.
+**Per client (recommended kung ibebenta):** hiwalay na Sheet + Script + Worker.  
+**Shared (mas mabilis):** isang Sheet/Worker para sa lahat — mas magulo ang data.
 
 ---
 
-## STEP 4 — Website files (GitHub)
+## STEP 4 — Email Routing (catch-all) — CRITICAL
 
-### Paraan A — Bagong repo per client (linis)
+Kung walang catch-all → Worker, **hindi papasok** ang `kahitano@clientdomain.com`.
 
-1. Gumawa ng bagong GitHub repo (Public OK para sa free Pages).  
-2. I-upload ang files ng project:
-   - `index.html`, `css/`, `js/`, `CNAME`  
-3. **Huwag isama** kung ayaw mong makita ng client sa repo:
-   - `backend/`
-   - `SETUP_GUIDE.md`
-   - `SELLER_PLAYBOOK.md`
-   - `js/snippets.js`
+1. Cloudflare → **domain ng client** → **Email → Email Routing** → Enable.
+2. **Routing rules** → i-edit / gawin ang **Catch-all**:
+   - Action: **Send to a Worker**
+   - Worker: yung mula Step 3
+3. **Save**.
+4. Tanggalin ang lumang “Forward to Gmail” rules kung sumasalungat.
+5. MX records: iwanang auto ang Cloudflare Email Routing.
 
-### Paraan B — Clone / copy folder
+### Test ingest
 
-1. Kopyahin ang buong project folder.  
-2. Palitan ang `js/config.js` (Step 5).  
-3. Push sa repo ng client.
+1. Mag-send mula Gmail papunta sa `test@clientdomain.com`.
+2. Hintay 10–30s.
+3. Buksan ang Google Sheet → tab **Inbox** → dapat may bagong row (`to`, `from`, `subject`, `bodyHtml`…).
 
-### CNAME file
+Kung **walang row**: Worker logs + `GAS_WEBAPP_URL` + Catch-all rule.
 
-Sa root, file name: `CNAME` (walang extension), laman:
+---
+
+## STEP 5 — Website files + `js/config.js`
+
+### Files na kailangan sa GitHub Pages (root)
+
+- `index.html`
+- `css/`
+- `js/` (lahat: `config.js`, `app.js`, `themes.js`, …)
+- `CNAME` (custom domain)
+
+### Optional tanggalin sa client repo (seller privacy)
+
+- `backend/`
+- `SETUP_GUIDE.md`
+- `SELLER_PLAYBOOK.md`
+- `js/snippets.js`
+
+### `CNAME` file (root, walang extension)
 
 ```text
 clientdomain.com
@@ -120,27 +137,27 @@ clientdomain.com
 
 (o `mail.clientdomain.com` kung subdomain)
 
----
-
-## STEP 5 — I-edit `js/config.js` (PINAKA-IMPORTANT)
-
-Buksan `js/config.js` at palitan:
+### I-edit `js/config.js` (PINAKA-IMPORTANT)
 
 ```js
 window.APP_CONFIG = {
   brandTitle: "clientdomain.com",
   brandLogo: "",
   domains: ["clientdomain.com"],
-  defaultPrefix: "info",              // starting prefix
-  defaultPassword: "palitan-mo-ito",  // ibigay sa client
+  defaultPrefix: "",                 // blank = user types username
+  defaultPassword: "palitan-mo-ito", // ibigay sa client
 
-footerName: "GRASHIEX",
-footerLink: "https://t.me/grashiex", // SELLER ONLY — hindi nae-edit ng client
-footerYear: 2026,
+  contactAdminLabel: "Contact admin",
+  contactAdminLink: "https://t.me/yourhandle",
 
-  // LIVE — seller only (huwag ipakita sa client UI)
+  // Footer — SELLER ONLY (hindi editable sa Customize)
+  footerName: "GRASHIEX",
+  footerLink: "https://t.me/grashiex",
+  footerYear: 2026,
+
+  // LIVE backend — seller only
   googleScriptUrl: "https://script.google.com/macros/s/XXXX/exec",
-  demoMode: false,   // ALWAYS false kapag ibebenta
+  demoMode: false,   // ALWAYS false kapag live / ibebenta
 
   sessionKey: "webmail_session_ok",
   settingsKey: "webmail_settings",
@@ -149,27 +166,50 @@ footerYear: 2026,
 };
 ```
 
-**Checklist:**
+**Bago mag-push, check:**
+
 - [ ] `demoMode: false`
-- [ ] Tama ang `googleScriptUrl`
-- [ ] Tama ang `domains`
+- [ ] `googleScriptUrl` = exact `/exec` URL
+- [ ] `domains: ["clientdomain.com"]` tumutugma sa Email Routing domain
 - [ ] Bagong `defaultPassword`
+- [ ] Footer link mo
 
 ---
 
-## STEP 6 — GitHub Pages + Domain
+## STEP 6 — GitHub + Pages + DNS
 
-1. Repo → **Settings → Pages**  
-2. Source: **Deploy from a branch** → `main` / `(root)`  
-3. Custom domain: `clientdomain.com` (o subdomain)  
-4. Cloudflare DNS:
-   - **Apex** (`clientdomain.com`): A records to GitHub Pages IPs  
-     (o CNAME flattening kung supported)
-   - **Subdomain** (`mail.`): CNAME → `USERNAME.github.io`  
-5. Hintayin mag-verify ang GitHub.  
-6. Kung may lumang cache: Cloudflare → **Caching → Purge Everything**.
+### A. Repo
 
-GitHub Pages IPs (apex), usual:
+1. [github.com/new](https://github.com/new) → Public OK (free Pages).
+2. Upload / push ang files (may `index.html` sa **root**).
+
+PowerShell example (kung may git na):
+
+```powershell
+cd "C:\path\to\client-site"
+git add .
+git commit -m "Deploy client inbox"
+git branch -M main
+git remote add origin https://github.com/YOU/CLIENT_REPO.git
+git push -u origin main
+```
+
+### B. GitHub Pages
+
+1. Repo → **Settings → Pages**
+2. Source: **Deploy from a branch**
+3. Branch: `main` / folder: `/ (root)` → Save
+4. Custom domain: `clientdomain.com` (dapat match sa `CNAME` file)
+
+### C. Cloudflare DNS → GitHub Pages (hindi Apps Script)
+
+**Subdomain** (`mail.clientdomain.com`):
+
+| Type | Name | Target | Proxy |
+|------|------|--------|-------|
+| CNAME | `mail` | `YOURUSER.github.io` | DNS only (grey cloud) recommended |
+
+**Apex** (`clientdomain.com`) — A records:
 
 ```text
 185.199.108.153
@@ -178,71 +218,103 @@ GitHub Pages IPs (apex), usual:
 185.199.111.153
 ```
 
----
-
-## STEP 7 — Final test (ikaw)
-
-1. Buksan `https://clientdomain.com`  
-2. Unlock gamit ang password sa `config.js`  
-3. Prefix: `test` (o kahit ano)  
-4. Mag-send ng email / OTP papunta doon  
-5. **Refresh Inbox** → dapat may message + OTP badge  
-
-Kung **0 messages** pero may row sa Sheet:
-- Hard refresh `Ctrl+Shift+R`
-- Check `demoMode: false`
-- Check tama ang prefix@domain
+5. Hintayin i-verify ng GitHub ang domain.
+6. Kung luma ang CSS/JS: Cloudflare → **Caching → Configuration → Purge Everything**.
 
 ---
 
-## STEP 8 — I-hand off sa client
+## STEP 7 — Final test (ikaw muna)
 
-Sabihin:
+1. Buksan `https://clientdomain.com`
+2. Unlock gamit ang password sa `config.js`
+3. Mag-type ng username (prefix), hal. `test`
+4. Address = `test@clientdomain.com`
+5. Mag-send ng email / OTP doon
+6. **Refresh Inbox** → dapat may message, OTP badge, Open Access Link
+7. Buksan ang email → scroll OK sa mobile → CTA link → **new tab**
 
-1. URL: `https://clientdomain.com`  
-2. Password: `(yung sa config)` — puwede nilang palitan sa **Customize**  
+### Customize (client / ikaw)
+
+**Customize** button:
+
+- Brand, logo, background, contact admin link, password
+- Theme presets **o** **Custom Palette**:
+  - Primary / Secondary / Background / Card (4 hex)
+  - **Live preview** habang nagta-type
+  - **Save** para i-lock; Cancel = balik sa dati
+- Footer (GRASHIEX) — **hindi** nasa Customize; nasa `config.js` lang
+
+---
+
+## STEP 8 — Handoff sa client
+
+Sabihin lang:
+
+1. **URL:** `https://clientdomain.com`
+2. **Password:** (mula config) — puwede nilang palitan sa Customize
 3. Paano gamitin:
-   - Type ang username (prefix)  
-   - Copy Address  
-   - Gamitin sa signup  
-   - Refresh Inbox → copy OTP  
-4. Customize: logo, background, theme, footer link, bagong password  
+   - Type username → Copy Address
+   - Gamitin sa Netflix / Canva / etc.
+   - Refresh Inbox → copy OTP o Open Access Link
+4. Customize: logo, colors, password
 
-**Huwag turuan** ang Apps Script / Worker / `config.js`.
+**Huwag turuan / huwag ibigay:**
+
+- Apps Script URL
+- Worker / Email Routing
+- `config.js` / `backend/`
+- Paano i-edit ang footer
 
 ---
 
 ## Kapag may problema
 
-| Symptom | Check |
-|---------|--------|
-| Unstyled / plain HTML | Purge Cloudflare cache + hard refresh |
-| 0 messages, Sheet may row | `demoMode: false`, tama ba ang prefix, hard refresh |
+| Symptom | Fix |
+|---------|-----|
+| Plain / unstyled site | Purge Cloudflare cache + hard refresh (`Ctrl+Shift+R`). I-off Auto Minify CSS kung sira. |
+| 0 messages, Sheet may row | `demoMode: false`? Tama ba ang prefix@domain? Hard refresh. |
 | Walang row sa Sheet | Catch-all → Worker? `GAS_WEBAPP_URL` tama? |
-| `window is not defined` sa domain | Maling naka-point ang domain sa Apps Script — dapat GitHub Pages |
-| OTP maraming basura | Latest `extractors.js` (strict OTP) |
+| `window is not defined` sa domain | Domain naka-point sa Apps Script — ilipat sa GitHub Pages |
+| White screen sa “Create Account” sa email | Latest site (`sandbox` allow-popups). Hard refresh. |
+| Garbled text `Weâre` | I-update Worker code (`backend/worker.js` UTF-8 decode) → Deploy. Bagong emails lang ang fixed. |
+| OTP basura (000000, Enter, …) | Latest `js/extractors.js` |
+| Pages 404 | `index.html` ba nasa root? Branch `main` / `(root)` |
 
 ---
 
-## Template timing (estimate)
+## File map (para di malito)
+
+| File | Role |
+|------|------|
+| `backend/Code.gs` | Paste sa Apps Script |
+| `backend/worker.js` | Paste sa Cloudflare Worker |
+| `js/config.js` | Seller secrets + domain + footer |
+| `index.html` + `css/` + `js/` | Frontend (Pages) |
+| `CNAME` | Custom domain name |
+| `SELLER_PLAYBOOK.md` | **Itong guide** |
+
+---
+
+## Time estimate
 
 | Task | Oras |
 |------|------|
-| Cloudflare + DNS | 15–60 min (nameserver wait) |
+| Cloudflare + nameservers | 15–60 min |
 | Sheet + Script deploy | 10 min |
-| Worker + Email Routing | 10 min |
-| Repo + config + Pages | 15–30 min |
-| Test | 5 min |
+| Worker + Catch-all | 10 min |
+| Repo + config + Pages + DNS | 15–30 min |
+| Test + handoff | 5–10 min |
 
 ---
 
-## Quick copy — `config.js` blanks
+## Quick blank `config.js`
 
 ```js
 brandTitle: "",
 domains: [""],
 defaultPrefix: "",
 defaultPassword: "",
+contactAdminLink: "",
 footerName: "GRASHIEX",
 footerLink: "",
 footerYear: 2026,
@@ -250,4 +322,4 @@ googleScriptUrl: "",
 demoMode: false,
 ```
 
-Tapos — **Save → push/upload → purge cache → test → bigay sa client.**
+**Order lagi:** Sheet row OK → config live → Pages DNS → purge → test → bigay sa client.

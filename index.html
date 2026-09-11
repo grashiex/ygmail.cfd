@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/styles.css?v=20260912h" />
+    <link rel="stylesheet" href="/css/styles.css?v=20260912i" />
   </head>
   <body data-theme="dark-cyber">
     <!-- Password Gatekeeper -->
@@ -201,11 +201,55 @@
         </div>
 
         <div class="field" id="custom-palette-wrap" hidden>
-          <label for="set-palette">Custom Palette (4 hex codes or Color Hunt link)</label>
-          <textarea
-            id="set-palette"
-            placeholder="#0b1020 #151d33 #5eead4 #e2e8f0&#10;or https://colorhunt.co/palette/…"
-          ></textarea>
+          <div class="palette-card">
+            <h3 class="palette-title">Custom 4-Color Palette</h3>
+            <p class="field-hint">Paste hex values like <code>#0f766e</code> — live preview as you type</p>
+
+            <div class="palette-row">
+              <label for="pal-primary">Primary</label>
+              <div class="palette-input">
+                <input type="color" id="pal-primary-swatch" value="#ff78b2" aria-label="Primary swatch" />
+                <input type="text" id="pal-primary" spellcheck="false" placeholder="#ff78b2" />
+              </div>
+            </div>
+
+            <div class="palette-row">
+              <label for="pal-secondary">Secondary</label>
+              <div class="palette-input">
+                <input type="color" id="pal-secondary-swatch" value="#f472b6" aria-label="Secondary swatch" />
+                <input type="text" id="pal-secondary" spellcheck="false" placeholder="#f472b6" />
+              </div>
+            </div>
+
+            <div class="palette-row">
+              <label for="pal-background">Background</label>
+              <div class="palette-input">
+                <input type="color" id="pal-background-swatch" value="#e4f0fa" aria-label="Background swatch" />
+                <input type="text" id="pal-background" spellcheck="false" placeholder="#e4f0fa" />
+              </div>
+            </div>
+
+            <div class="palette-row">
+              <label for="pal-surface">Card / Surface</label>
+              <div class="palette-input">
+                <input type="color" id="pal-surface-swatch" value="#ffffff" aria-label="Surface swatch" />
+                <input type="text" id="pal-surface" spellcheck="false" placeholder="#ffffff" />
+              </div>
+            </div>
+
+            <div class="palette-bulk">
+              <label for="set-palette">Or paste Color Hunt link / 4 hexes</label>
+              <input
+                type="text"
+                id="set-palette"
+                placeholder="https://colorhunt.co/palette/… or #111 #222 #333 #444"
+              />
+            </div>
+
+            <button type="button" class="btn-primary palette-apply" id="btn-apply-palette">
+              Apply Custom Theme
+            </button>
+          </div>
         </div>
 
         <div class="field">
@@ -236,12 +280,12 @@
 
     <div id="toasts" aria-live="polite"></div>
 
-    <script src="/js/config.js?v=20260912h"></script>
-    <script src="/js/auth.js?v=20260912h"></script>
-    <script src="/js/themes.js?v=20260912h"></script>
-    <script src="/js/extractors.js?v=20260912h"></script>
-    <script src="/js/demo-data.js?v=20260912h"></script>
-    <script src="/js/api.js?v=20260912h"></script>
-    <script src="/js/app.js?v=20260912h"></script>
+    <script src="/js/config.js?v=20260912i"></script>
+    <script src="/js/auth.js?v=20260912i"></script>
+    <script src="/js/themes.js?v=20260912i"></script>
+    <script src="/js/extractors.js?v=20260912i"></script>
+    <script src="/js/demo-data.js?v=20260912i"></script>
+    <script src="/js/api.js?v=20260912i"></script>
+    <script src="/js/app.js?v=20260912i"></script>
   </body>
 </html>
