@@ -9,6 +9,9 @@
 
 const SHEET_NAME = 'Inbox';
 
+/** Copy of every new inbound email goes here (Option B). Leave '' to disable. */
+const FORWARD_TO_GMAIL = 'glitterhost0@gmail.com';
+
 function doGet(e) {
   return handleRequest(e, 'GET');
 }
@@ -88,16 +91,43 @@ function ingest_(p) {
   const sh = sheet_();
   const id = p.id || Utilities.getUuid();
   const date = p.date || new Date().toISOString();
-  sh.appendRow([
-    id,
-    p.to || '',
-    p.from || '',
-    p.subject || '',
-    date,
-    p.bodyText || p.body || '',
-    p.bodyHtml || p.html || ''
-  ]);
+  const to = p.to || '';
+  const from = p.from || '';
+  const subject = p.subject || '';
+  const bodyText = p.bodyText || p.body || '';
+  const bodyHtml = p.bodyHtml || p.html || '';
+
+  sh.appendRow([id, to, from, subject, date, bodyText, bodyHtml]);
+
+  try {
+    forwardCopy_({ to: to, from: from, subject: subject, bodyText: bodyText, bodyHtml: bodyHtml });
+  } catch (err) {
+    // Don't fail ingest if Gmail forward fails
+    console.error('forwardCopy_ failed: ' + err);
+  }
+
   return { id: id };
+}
+
+function forwardCopy_(mail) {
+  if (!FORWARD_TO_GMAIL) return;
+
+  const subj = '[ygmail] ' + (mail.subject || '(no subject)');
+  const plain =
+    'To: ' + (mail.to || '') + '\n' +
+    'From: ' + (mail.from || '') + '\n' +
+    'Subject: ' + (mail.subject || '') + '\n\n' +
+    (mail.bodyText || '(see HTML body)');
+
+  const opts = {
+    name: 'ygmail.cfd',
+    replyTo: mail.from || undefined,
+  };
+  if (mail.bodyHtml) {
+    opts.htmlBody = mail.bodyHtml;
+  }
+
+  MailApp.sendEmail(FORWARD_TO_GMAIL, subj, plain, opts);
 }
 
 function deleteEmail_(id) {
