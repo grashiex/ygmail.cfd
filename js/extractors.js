@@ -1,53 +1,125 @@
 /**
  * OTP / verification-code and activation-link extractors.
+ * Strict: only clearly labeled codes — no random number/word noise.
  */
 window.Extractors = (() => {
-  const CODE_PATTERNS = [
-    /(?:(?:login|security|verification|access|otp|one[-\s]?time|auth(?:entication)?|confirm(?:ation)?)\s*(?:code|pin|password)?\s*[:=]?\s*)([A-Z0-9]{4,8})\b/gi,
-    /\b(?:code|pin)\s*[:=]\s*([A-Z0-9]{4,8})\b/gi,
-    /\b(\d{4,8})\b(?=\s*(?:is your|to (?:verify|confirm|login|sign)))/gi,
-    /\b([0-9]{4,8})\b/g,
-    /\b([A-Z0-9]{5,8})\b(?=.*(?:steam|guard|code))/gi,
+  const LABELED_CODE_RES = [
+    /(?:your\s+)?(?:canva|google|telegram|steam|discord|apple|microsoft|meta|facebook|instagram|twitter|x|amazon|netflix|spotify|github|login|security|verification|access|otp|one[-\s]?time|guard|auth(?:entication)?|confirm(?:ation)?|sign[-\s]?in)?\s*(?:login\s+)?(?:code|pin|passcode|otp)\s*(?:is|=|:)?\s*([A-Z0-9]{4,8})\b/gi,
+    /\b(?:code|pin|passcode|otp)\s*[:=]\s*([A-Z0-9]{4,8})\b/gi,
+    /\b([A-Z0-9]{4,8})\b\s+is\s+your\s+(?:code|pin|otp|passcode)\b/gi,
   ];
 
-  const URL_PATTERN =
-    /https?:\/\/[^\s<>"')\]]+/gi;
+  const SUBJECT_CODE_RE =
+    /(?:code|pin|otp|passcode)\s*(?:is|=|:)?\s*([A-Z0-9]{4,8})\b|\b([A-Z0-9]{4,8})\b\s+is\s+your/i;
 
-  const SKIP_HOSTS = /(?:unsubscribe|privacy|terms|help\.|support\.|static\.|cdn\.|fonts\.|w3\.org|schema\.org)/i;
+  const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
+  const SKIP_HOSTS =
+    /(?:unsubscribe|privacy|terms|help\.|support\.|static\.|cdn\.|fonts\.|w3\.org|schema\.org)/i;
+
+  const WORD_BLOCKLIST = new Set(
+    [
+      "canva",
+      "enter",
+      "code",
+      "login",
+      "email",
+      "click",
+      "here",
+      "http",
+      "https",
+      "www",
+      "null",
+      "true",
+      "false",
+      "html",
+      "body",
+      "span",
+      "div",
+      "from",
+      "this",
+      "that",
+      "with",
+      "your",
+      "account",
+      "verify",
+      "finish",
+      "signing",
+    ].map((w) => w.toUpperCase())
+  );
 
   function unique(arr) {
     return [...new Set(arr.filter(Boolean))];
   }
 
-  function extractCodes(text) {
-    if (!text) return [];
-    const found = [];
-    const plain = String(text).replace(/<[^>]+>/g, " ");
+  function stripHtml(text) {
+    return String(text || "")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
 
-    for (const re of CODE_PATTERNS) {
+  function isValidCode(code) {
+    if (!code) return false;
+    const c = String(code).trim();
+    if (!/^[A-Z0-9]{4,8}$/i.test(c)) return false;
+    if (/^(19|20)\d{2}$/.test(c)) return false; // years
+    if (/^0+$/.test(c)) return false; // 000000
+    if (WORD_BLOCKLIST.has(c.toUpperCase())) return false;
+    // Prefer mostly-digit OTPs, or alphanumeric like Steam (must have a digit)
+    if (/^[A-Za-z]+$/.test(c)) return false; // pure words like Canva/Enter
+    return true;
+  }
+
+  function extractFromLabeled(plain) {
+    const found = [];
+    for (const re of LABELED_CODE_RES) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(plain)) !== null) {
-        const code = m[1];
-        if (!code) continue;
-        // Prefer digit-heavy OTPs; allow alphanumeric like Steam Guard
-        if (/^\d{4,8}$/.test(code) || /^[A-Z0-9]{4,8}$/i.test(code)) {
-          // Skip years / common false positives
-          if (/^(19|20)\d{2}$/.test(code)) continue;
-          found.push(code.toUpperCase() === code && /[A-Z]/.test(code) ? code : code);
-        }
+        const code = m[1] || m[2];
+        if (isValidCode(code)) found.push(code);
       }
     }
+    return found;
+  }
 
-    // Prefer explicit labeled matches: re-scan with first patterns only for ordering
-    const labeled = [];
-    const labeledRe =
-      /(?:login|security|verification|access|otp|one[-\s]?time|guard|auth(?:entication)?|confirm(?:ation)?)\s*(?:code|pin)?\s*[:=]?\s*([A-Z0-9]{4,8})\b/gi;
-    let lm;
-    while ((lm = labeledRe.exec(plain)) !== null) labeled.push(lm[1]);
+  function extractCodes(emailOrText) {
+    const subject =
+      typeof emailOrText === "object"
+        ? stripHtml(emailOrText.subject || "")
+        : "";
+    const body =
+      typeof emailOrText === "object"
+        ? stripHtml(
+            [
+              emailOrText.bodyText || "",
+              emailOrText.bodyHtml || "",
+              emailOrText.body || "",
+            ].join("\n")
+          )
+        : stripHtml(emailOrText);
 
-    const ordered = unique([...labeled, ...found]);
-    return ordered.slice(0, 5);
+    // 1) Subject wins (e.g. "Your Canva code is 885460")
+    const subjectHits = [];
+    if (subject) {
+      const sm = subject.match(SUBJECT_CODE_RE);
+      if (sm) {
+        const code = sm[1] || sm[2];
+        if (isValidCode(code)) subjectHits.push(code);
+      }
+      subjectHits.push(...extractFromLabeled(subject));
+    }
+
+    // 2) Body labeled only (no bare digit sweep)
+    const bodyHits = extractFromLabeled(body);
+
+    const ordered = unique([...subjectHits, ...bodyHits]);
+    // Exact: one best OTP when subject has it
+    if (subjectHits.length) return unique(subjectHits).slice(0, 1);
+    return ordered.slice(0, 1);
   }
 
   function extractLinks(text) {
@@ -58,12 +130,11 @@ window.Extractors = (() => {
     let hm;
     while ((hm = hrefRe.exec(plain)) !== null) hrefs.push(hm[1]);
 
-    const raw = plain.replace(/<[^>]+>/g, " ").match(URL_PATTERN) || [];
+    const raw = stripHtml(plain).match(URL_PATTERN) || [];
     const all = unique([...hrefs, ...raw])
       .map((u) => u.replace(/[.,;:!?)]+$/, ""))
       .filter((u) => !SKIP_HOSTS.test(u));
 
-    // Prefer verify/confirm/activate style links
     const scored = all
       .map((u) => {
         let score = 0;
@@ -74,19 +145,17 @@ window.Extractors = (() => {
       })
       .sort((a, b) => b.score - a.score);
 
-    return scored.map((s) => s.u).slice(0, 4);
+    return scored.map((s) => s.u).slice(0, 2);
   }
 
   function analyze(email) {
-    const haystack = [
-      email.subject || "",
-      email.bodyText || "",
-      email.bodyHtml || "",
-      email.body || "",
-    ].join("\n");
     return {
-      codes: extractCodes(haystack),
-      links: extractLinks(haystack),
+      codes: extractCodes(email),
+      links: extractLinks(
+        [email.bodyHtml || "", email.bodyText || "", email.body || ""].join(
+          "\n"
+        )
+      ),
     };
   }
 

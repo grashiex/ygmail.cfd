@@ -5,7 +5,6 @@
   const state = {
     messages: [],
     selectedId: null,
-    bodyTab: "html",
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -320,10 +319,10 @@
     const html = sanitizeHtml(m.bodyHtml || "");
     const text = m.bodyText || stripTags(m.bodyHtml || m.body || "");
     const iframe = $("#body-html");
-    iframe.srcdoc = wrapEmailHtml(html || `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`);
-    $("#body-text").textContent = text;
-
-    setBodyTab(state.bodyTab);
+    iframe.srcdoc = wrapEmailHtml(
+      html ||
+        `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
+    );
     if (!skipScroll) $("#reading-view").scrollTop = 0;
   }
 
@@ -338,14 +337,6 @@
       body{margin:16px;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#111;background:#fff;word-break:break-word}
       a{color:#0b57d0} img{max-width:100%;height:auto}
     </style></head><body>${inner}</body></html>`;
-  }
-
-  function setBodyTab(tab) {
-    state.bodyTab = tab;
-    $("#tab-html").classList.toggle("active", tab === "html");
-    $("#tab-text").classList.toggle("active", tab === "text");
-    $("#body-html").classList.toggle("hidden", tab !== "html");
-    $("#body-text").classList.toggle("hidden", tab !== "text");
   }
 
   async function copyText(text) {
@@ -500,9 +491,6 @@
   $("#btn-mobile-back").addEventListener("click", () => {
     $("#reading-pane").classList.remove("mobile-open");
   });
-
-  $("#tab-html").addEventListener("click", () => setBodyTab("html"));
-  $("#tab-text").addEventListener("click", () => setBodyTab("text"));
 
   // ---------- Themes + Customize ----------
   function syncThemeUI() {
