@@ -193,6 +193,13 @@
         }
       });
     });
+    // Open all real links in a new tab (Netflix etc. block iframe → white screen)
+    tpl.content.querySelectorAll("a[href]").forEach((a) => {
+      const href = (a.getAttribute("href") || "").trim();
+      if (!href || /^javascript:/i.test(href) || href === "#") return;
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    });
     return tpl.innerHTML;
   }
 
@@ -410,10 +417,10 @@
   }
 
   function wrapEmailHtml(inner) {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank" rel="noopener noreferrer"><style>
       html,body{margin:0;padding:0}
       body{margin:16px;font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111;background:#fff;word-break:break-word;overflow-wrap:anywhere}
-      a{color:#0b57d0} img{max-width:100%;height:auto}
+      a{color:#0b57d0;-webkit-touch-callout:default} img{max-width:100%;height:auto}
       table{max-width:100%!important}
     </style></head><body>${inner}</body></html>`;
   }
