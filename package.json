@@ -1,0 +1,12 @@
+{
+  "name": "ygmail-cfd",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "protect": "node scripts/protect.mjs",
+    "sync-src": "node -e \"const fs=require('fs');const path=require('path');const src='_src/js';const js='js';for(const f of fs.readdirSync(src)){if(f.endsWith('.js'))fs.copyFileSync(path.join(src,f),path.join(js,f));}console.log('synced _src/js -> js (readable, for local debug)');\""
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
