@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Private Webmail & OTP/Link Extractor inbox" />
+    <title>ygmail.cfd — Private Inbox</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-theme="dark-cyber">
+    <!-- Password Gatekeeper -->
+    <div id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+      <div class="gate-card" id="gate-card">
+        <p class="gate-brand" id="gate-title">ygmail.cfd</p>
+        <p class="gate-sub">Enter the inbox password to continue</p>
+        <form class="gate-form" id="gate-form" autocomplete="off">
+          <input
+            type="password"
+            id="gate-password"
+            placeholder="Password"
+            autofocus
+            required
+            aria-label="Inbox password"
+          />
+          <button type="submit" class="btn-primary">Unlock Inbox</button>
+          <p class="gate-error" id="gate-error" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark" id="brand-mark" aria-hidden="true">G</div>
+          <div class="brand-title" id="brand-title">ygmail.cfd</div>
+        </div>
+        <div class="header-actions">
+          <select class="select" id="theme-select" aria-label="Theme">
+            <option value="dark-cyber">Dark Cyber</option>
+            <option value="velvet-rose">Velvet Rose</option>
+            <option value="oled-minimal">Pure OLED Minimalist</option>
+            <option value="custom">Custom Palette</option>
+          </select>
+          <button type="button" class="btn-ghost" id="btn-settings" title="Customize">
+            ⚙ Customize
+          </button>
+          <button type="button" class="btn-ghost" id="btn-lock" title="Lock inbox">
+            🔒 Lock
+          </button>
+        </div>
+      </header>
+
+      <section class="identity-bar" aria-label="Email identity">
+        <div class="identity-field">
+          <input
+            type="text"
+            id="prefix-input"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="username"
+            aria-label="Email prefix"
+          />
+          <span class="at">@</span>
+          <select id="domain-select" aria-label="Domain"></select>
+        </div>
+        <div class="identity-actions">
+          <button type="button" class="btn-soft" id="btn-random" title="Random username">
+            🎲 Random
+          </button>
+          <button type="button" class="btn-soft btn-accent" id="btn-copy" title="Copy address">
+            📋 Copy Address
+          </button>
+          <button type="button" class="btn-soft" id="btn-refresh" title="Refresh inbox">
+            <span id="refresh-icon" aria-hidden="true">🔄</span> Refresh Inbox
+          </button>
+        </div>
+      </section>
+
+      <div class="inbox-layout">
+        <aside class="mail-list-panel">
+          <div class="list-toolbar">
+            <span>Inbox</span>
+            <span id="mail-count">0 messages</span>
+          </div>
+          <ul class="mail-list" id="mail-list" role="listbox" aria-label="Messages"></ul>
+        </aside>
+
+        <main class="reading-pane" id="reading-pane">
+          <div class="reading-empty" id="reading-empty">
+            <div>
+              <strong>Select a message</strong>
+              OTP codes and verification links appear as badges when detected.
+            </div>
+          </div>
+
+          <div class="reading-view" id="reading-view">
+            <div class="reading-header">
+              <div class="reading-actions">
+                <button type="button" class="btn-soft mobile-back" id="btn-mobile-back">
+                  ← Back
+                </button>
+                <button type="button" class="btn-soft" id="btn-copy-body">Copy Raw Body</button>
+                <button type="button" class="btn-soft" id="btn-delete" style="color: var(--danger)">
+                  Delete
+                </button>
+              </div>
+              <h1 class="reading-subject" id="read-subject"></h1>
+              <dl class="headers-grid" id="read-headers"></dl>
+            </div>
+            <div class="reading-extracts" id="read-extracts"></div>
+            <div class="reading-body">
+              <div class="body-tabs">
+                <button type="button" class="tab-btn active" data-tab="html" id="tab-html">
+                  HTML
+                </button>
+                <button type="button" class="tab-btn" data-tab="text" id="tab-text">
+                  Plain Text
+                </button>
+              </div>
+              <iframe
+                class="body-frame"
+                id="body-html"
+                sandbox=""
+                title="Email HTML body"
+              ></iframe>
+              <pre class="body-plain hidden" id="body-text"></pre>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <footer class="app-footer">
+        <p>
+          Copyright
+          <a
+            id="footer-brand"
+            href="https://t.me/grashiex"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GRASHIEX</a
+          >
+          © <span id="footer-year">2026</span>. All rights reserved.
+        </p>
+      </footer>
+    </div>
+
+    <!-- Client customize (no Apps Script / Worker secrets) -->
+    <div class="modal-scrim" id="settings-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <h2 id="settings-title">Customize</h2>
+        <p class="modal-lead">Logo, background, theme, and password — for your inbox.</p>
+
+        <div class="field">
+          <label for="set-brand">Brand Title</label>
+          <input type="text" id="set-brand" placeholder="ygmail.cfd" />
+        </div>
+
+        <div class="field">
+          <label for="set-logo">Logo URL</label>
+          <input type="url" id="set-logo" placeholder="https://…/logo.png" />
+          <div class="file-row">
+            <label class="btn-soft file-btn" for="set-logo-file">Upload logo</label>
+            <input type="file" id="set-logo-file" accept="image/*" hidden />
+            <button type="button" class="btn-ghost" id="btn-clear-logo">Clear</button>
+          </div>
+          <div class="preview-row" id="logo-preview" hidden>
+            <img id="logo-preview-img" alt="Logo preview" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="set-bg">Background Image URL</label>
+          <input type="url" id="set-bg" placeholder="https://…/bg.jpg" />
+          <div class="file-row">
+            <label class="btn-soft file-btn" for="set-bg-file">Upload background</label>
+            <input type="file" id="set-bg-file" accept="image/*" hidden />
+            <button type="button" class="btn-ghost" id="btn-clear-bg">Clear</button>
+          </div>
+          <p class="field-hint">Image sits behind a soft dark overlay so text stays readable.</p>
+        </div>
+
+        <div class="field">
+          <label for="set-footer-link">Footer link (GRASHIEX click)</label>
+          <input type="url" id="set-footer-link" placeholder="https://…" />
+        </div>
+
+        <div class="field">
+          <label for="set-theme">Theme</label>
+          <select id="set-theme" class="select" style="width: 100%">
+            <option value="dark-cyber">Dark Cyber</option>
+            <option value="velvet-rose">Velvet Rose</option>
+            <option value="oled-minimal">Pure OLED Minimalist</option>
+            <option value="custom">Custom Palette</option>
+          </select>
+        </div>
+
+        <div class="field" id="custom-palette-wrap" hidden>
+          <label for="set-palette">Custom Palette (4 hex codes or Color Hunt link)</label>
+          <textarea
+            id="set-palette"
+            placeholder="#0b1020 #151d33 #5eead4 #e2e8f0&#10;or https://colorhunt.co/palette/…"
+          ></textarea>
+        </div>
+
+        <div class="field">
+          <label for="set-password">New Password</label>
+          <input
+            type="password"
+            id="set-password"
+            placeholder="Leave blank to keep current"
+            autocomplete="new-password"
+          />
+        </div>
+        <div class="field">
+          <label for="set-password-confirm">Confirm New Password</label>
+          <input
+            type="password"
+            id="set-password-confirm"
+            placeholder="Repeat new password"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" id="btn-settings-cancel">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-settings-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toasts" aria-live="polite"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/themes.js"></script>
+    <script src="js/extractors.js"></script>
+    <script src="js/demo-data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
