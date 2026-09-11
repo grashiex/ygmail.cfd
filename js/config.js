@@ -1,7 +1,9 @@
 /**
  * ═══════════════════════════════════════════════════════════
- *  SELLER CONFIG — ikaw lang mag-set ng backend dito
+ *  SELLER CONFIG — ikaw lang mag-set ng backend + footer dito
  * ═══════════════════════════════════════════════════════════
+ * Clients (Customize UI): logo, background, theme, password, brand title
+ * Seller only (this file): googleScriptUrl, demoMode, domains, footer*
  */
 window.APP_CONFIG = {
   brandTitle: "ygmail.cfd",
@@ -10,12 +12,12 @@ window.APP_CONFIG = {
   defaultPrefix: "business",
   defaultPassword: "grashiex123",
 
-  // Footer — clickable name
+  // Footer — SELLER ONLY (not in Customize UI)
   footerName: "GRASHIEX",
   footerLink: "https://t.me/grashiex",
   footerYear: 2026,
 
-  // Live backend
+  // Live backend — seller only
   googleScriptUrl:
     "https://script.google.com/macros/s/AKfycbzexhxvRZWE0kFlWGkI1z3fmv1qeceIbvYiYJNZQiRVONMaYbiue96wBuk-JpNCDUiuwA/exec",
   demoMode: false,

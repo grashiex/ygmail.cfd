@@ -3,7 +3,13 @@
  * Seller secrets (googleScriptUrl, demoMode) never stored / always stripped.
  */
 window.Auth = (() => {
-  const BLOCKED = ["googleScriptUrl", "demoMode"];
+  const BLOCKED = [
+    "googleScriptUrl",
+    "demoMode",
+    "footerName",
+    "footerLink",
+    "footerYear",
+  ];
 
   function isUnlocked() {
     return localStorage.getItem(APP_CONFIG.sessionKey) === "1";
@@ -47,6 +53,12 @@ window.Auth = (() => {
     const s = getSettings();
     let dirty = false;
     BLOCKED.forEach((k) => {
+      if (k in s) {
+        delete s[k];
+        dirty = true;
+      }
+    });
+    ["footerName", "footerLink", "footerYear"].forEach((k) => {
       if (k in s) {
         delete s[k];
         dirty = true;

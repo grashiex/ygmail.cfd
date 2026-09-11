@@ -75,9 +75,10 @@
   }
 
   function applyFooter() {
-    const name = prefs().footerName || APP_CONFIG.footerName || "GRASHIEX";
-    const link = prefs().footerLink || APP_CONFIG.footerLink || "#";
-    const year = prefs().footerYear || APP_CONFIG.footerYear || new Date().getFullYear();
+    // Seller-only — from APP_CONFIG, never client Customize
+    const name = APP_CONFIG.footerName || "GRASHIEX";
+    const link = APP_CONFIG.footerLink || "#";
+    const year = APP_CONFIG.footerYear || new Date().getFullYear();
     const a = $("#footer-brand");
     if (!a) return;
     a.textContent = name;
@@ -538,8 +539,6 @@
     $("#set-brand").value = brandTitle();
     $("#set-logo").value = brandLogo().startsWith("data:") ? "" : brandLogo();
     $("#set-bg").value = backgroundUrl().startsWith("data:") ? "" : backgroundUrl();
-    $("#set-footer-link").value =
-      prefs().footerLink || APP_CONFIG.footerLink || "";
     $("#set-password").value = "";
     $("#set-password-confirm").value = "";
     $("#set-logo-file").value = "";
@@ -653,10 +652,6 @@
       brandTitle: $("#set-brand").value.trim() || APP_CONFIG.brandTitle,
       brandLogo: logo,
       backgroundUrl: bg,
-      footerLink:
-        $("#set-footer-link").value.trim() ||
-        APP_CONFIG.footerLink ||
-        "#",
       prefix: $("#prefix-input").value.trim(),
     };
     if (newPass) patch.password = newPass;
