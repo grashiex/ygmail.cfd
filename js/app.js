@@ -201,7 +201,10 @@
         messages = await Api.listEmails(currentAddress());
       }
       state.messages = messages.map((m) => {
-        const extracted = Extractors.analyze(m);
+        const extracted =
+          typeof Extractors !== "undefined" && Extractors.analyze
+            ? Extractors.analyze(m)
+            : { codes: [], links: [] };
         return { ...m, ...extracted };
       });
       renderList();

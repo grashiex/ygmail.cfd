@@ -5,7 +5,7 @@ window.Extractors = (() => {
   const CODE_PATTERNS = [
     /(?:(?:login|security|verification|access|otp|one[-\s]?time|auth(?:entication)?|confirm(?:ation)?)\s*(?:code|pin|password)?\s*[:=]?\s*)([A-Z0-9]{4,8})\b/gi,
     /\b(?:code|pin)\s*[:=]\s*([A-Z0-9]{4,8})\b/gi,
-    /\b(\d{4,8})\b(?=\s*(?:is your|to (?:verify|confirm|login|sign))/gi),
+    /\b(\d{4,8})\b(?=\s*(?:is your|to (?:verify|confirm|login|sign)))/gi,
     /\b([0-9]{4,8})\b/g,
     /\b([A-Z0-9]{5,8})\b(?=.*(?:steam|guard|code))/gi,
   ];
