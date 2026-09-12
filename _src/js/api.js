@@ -12,18 +12,30 @@ window.Api = (() => {
     const base = getBaseUrl();
     if (!base) throw new Error("Inbox backend is not configured.");
     const url = new URL(base, window.location.origin);
-    const res = await fetch(url.toString(), {
-      method: "POST",
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    if (!data.ok && data.error) throw new Error(data.error);
-    return data;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(url.toString(), {
+        method: "POST",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      if (!data.ok && data.error) throw new Error(data.error);
+      return data;
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error("Taking too long — check Worker deploy / network");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function listEmails(toAddress) {
@@ -34,19 +46,31 @@ window.Api = (() => {
     url.searchParams.set("action", "list");
     if (toAddress) url.searchParams.set("to", toAddress);
 
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    if (!data.ok && data.error) throw new Error(data.error);
-    return {
-      emails: (data.emails || data.messages || []).map(normalize),
-      sessionEpoch: data.sessionEpoch,
-    };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45000);
+    try {
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        mode: "cors",
+        credentials: "omit",
+        cache: "no-store",
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      if (!data.ok && data.error) throw new Error(data.error);
+      return {
+        emails: (data.emails || data.messages || []).map(normalize),
+        sessionEpoch: data.sessionEpoch,
+      };
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error("Inbox load timeout — tap Refresh again");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function deleteEmail(id) {

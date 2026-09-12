@@ -564,7 +564,11 @@
     const pw = $("#gate-password").value;
     const card = $("#gate-card");
     const btn = e.target.querySelector('button[type="submit"]');
-    if (btn) btn.disabled = true;
+    const prevLabel = btn ? btn.textContent : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+    }
     $("#gate-error").textContent = "";
     try {
       const ok = await Auth.unlock(pw);
@@ -574,8 +578,9 @@
         setTimeout(() => {
           showApp();
           $("#gate").classList.remove("is-hiding");
+          // Don't block UI on slow inbox fetch
           loadInbox({ silent: true });
-        }, 280);
+        }, 180);
       } else {
         $("#gate-error").textContent = "Incorrect password";
         card.classList.remove("shake");
@@ -585,12 +590,16 @@
     } catch (err) {
       const msg = String(err.message || err || "Login failed");
       $("#gate-error").textContent = /unknown action/i.test(msg)
-        ? "Server outdated — update Code.gs + Deploy New version"
+        ? "Server outdated — update Worker + Code.gs"
         : msg;
       card.classList.remove("shake");
       void card.offsetWidth;
       card.classList.add("shake");
-    } finally {      if (btn) btn.disabled = false;
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prevLabel || "Unlock Inbox";
+      }
     }
   });
 
