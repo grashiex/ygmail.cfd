@@ -101,6 +101,25 @@ function getSessionEpoch_() {
 }
 
 /**
+ * LOCKOUT RECOVERY — run this in Apps Script editor (▶ Run), then Deploy New version.
+ * Sets site password to RECOVERY_PASSWORD below (same as config defaultPassword).
+ */
+const RECOVERY_PASSWORD = 'grashiex123';
+
+function resetSitePassword() {
+  setStoredHash_(RECOVERY_PASSWORD);
+  Logger.log('Password reset to: ' + RECOVERY_PASSWORD);
+  try {
+    SpreadsheetApp.getUi().alert(
+      'Password reset OK.\n\nLogin with: ' + RECOVERY_PASSWORD +
+      '\n\nThen: Deploy → Manage deployments → pencil → New version → Deploy'
+    );
+  } catch (e) {
+    // UI not available in some contexts
+  }
+}
+
+/**
  * First login: if no hash yet, bootstrap password (from config defaultPassword) becomes the site password.
  * After buyer changes password, only the new one works on every device.
  */

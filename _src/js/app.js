@@ -583,12 +583,14 @@
         card.classList.add("shake");
       }
     } catch (err) {
-      $("#gate-error").textContent = err.message || "Login failed";
+      const msg = String(err.message || err || "Login failed");
+      $("#gate-error").textContent = /unknown action/i.test(msg)
+        ? "Server outdated — update Code.gs + Deploy New version"
+        : msg;
       card.classList.remove("shake");
       void card.offsetWidth;
       card.classList.add("shake");
-    } finally {
-      if (btn) btn.disabled = false;
+    } finally {      if (btn) btn.disabled = false;
     }
   });
 
