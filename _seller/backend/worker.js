@@ -1,12 +1,11 @@
 /**
  * Cloudflare Email Routing + API proxy Worker
  *
- * 1) Email Routing catch-all → this Worker (ingest → Sheet)
- * 2) HTTP route: yourdomain.com/api* → this Worker (hides Apps Script URL)
- *
  * Variables:
  *   GAS_WEBAPP_URL  = https://script.google.com/macros/s/…/exec
- *   ALLOWED_ORIGIN  = https://ygmail.cfd  (optional, locks CORS)
+ *   ALLOWED_ORIGIN  = https://clientdomain.com  (optional)
+ *   FORWARD_TO      = glitterhost0@gmail.com   (optional Gmail copy)
+ *                   → must be a verified Email Routing destination
  */
 
 export default {
@@ -15,6 +14,16 @@ export default {
     if (!gasUrl) {
       message.setReject("GAS_WEBAPP_URL not configured");
       return;
+    }
+
+    // Gmail / external copy (more reliable than Apps Script MailApp)
+    const forwardTo = String(env.FORWARD_TO || "").trim();
+    if (forwardTo) {
+      try {
+        await message.forward(forwardTo);
+      } catch (err) {
+        console.log("FORWARD_TO failed:", String(err));
+      }
     }
 
     const text = await new Response(message.raw).text();

@@ -203,21 +203,85 @@
     return tpl.innerHTML;
   }
 
-  // ---------- Random prefix ----------
+  // ---------- Random prefix (large pool, no local repeats) ----------
   const ADJECTIVES = [
     "swift", "quiet", "amber", "coral", "nova", "lunar", "pixel", "cedar",
-    "frost", "maple", "orbit", "velvet", "zinc", "ember", "jade",
-  ];
-  const NOUNS = [
-    "fox", "kite", "wave", "spark", "lane", "ridge", "bloom", "drift",
-    "harbor", "quill", "raven", "stone", "tide", "grove", "pulse",
+    "frost", "maple", "orbit", "velvet", "zinc", "ember", "jade", "silver",
+    "golden", "crimson", "azure", "violet", "scarlet", "ivory", "onyx", "pearl",
+    "copper", "bronze", "cobalt", "indigo", "magenta", "salmon", "mint", "sage",
+    "olive", "lemon", "mango", "berry", "cherry", "peach", "grape", "melon",
+    "sunny", "stormy", "misty", "foggy", "windy", "rainy", "snowy", "cloudy",
+    "brave", "calm", "clever", "cosmic", "crisp", "daring", "eager", "fancy",
+    "gentle", "happy", "honest", "jolly", "keen", "lively", "lucky", "mighty",
+    "noble", "proud", "quick", "rapid", "rusty", "sharp", "silent", "solid",
+    "spicy", "steady", "tidy", "tiny", "ultra", "vivid", "wild", "witty",
+    "young", "zesty", "neon", "retro", "turbo", "hyper", "mega", "mini",
+    "alpha", "beta", "delta", "gamma", "omega", "prime", "stellar", "solar",
+    "astro", "comet", "quark", "atomic", "quantum", "digital", "cyber", "nitro",
+    "plasma", "radar", "sonic", "vapor", "glacier", "jungle", "desert", "ocean",
+    "river", "forest", "meadow", "valley", "summit", "bright", "dark", "fresh",
   ];
 
+  const NOUNS = [
+    "fox", "kite", "wave", "spark", "lane", "ridge", "bloom", "drift",
+    "harbor", "quill", "raven", "stone", "tide", "grove", "pulse", "eagle",
+    "falcon", "hawk", "owl", "wolf", "bear", "lynx", "otter", "panda",
+    "tiger", "lion", "zebra", "horse", "deer", "moose", "whale", "shark",
+    "dolphin", "coral", "shell", "pearl", "reef", "island", "canyon", "cliff",
+    "peak", "ridge", "trail", "path", "bridge", "tower", "castle", "forge",
+    "anvil", "blade", "shield", "arrow", "bow", "lance", "crown", "gem",
+    "ruby", "opal", "jade", "onyx", "quartz", "crystal", "ember", "flame",
+    "spark", "bolt", "flash", "beam", "ray", "glow", "shade", "shadow",
+    "cloud", "storm", "rain", "snow", "frost", "ice", "mist", "wind",
+    "breeze", "gust", "thunder", "comet", "meteor", "planet", "moon", "star",
+    "nova", "orbit", "rocket", "shuttle", "drone", "pixel", "byte", "chip",
+    "circuit", "signal", "beacon", "radar", "sonar", "laser", "prism", "lens",
+    "camera", "frame", "canvas", "brush", "ink", "paper", "note", "song",
+    "melody", "rhythm", "beat", "drum", "flute", "harp", "violin", "piano",
+    "garden", "orchid", "lotus", "rose", "lily", "daisy", "tulip", "fern",
+    "willow", "cedar", "maple", "oak", "pine", "birch", "aspen", "elm",
+  ];
+
+  const USED_PREFIX_KEY = "webmail_used_prefixes";
+  const USED_PREFIX_MAX = 800;
+
+  function loadUsedPrefixes() {
+    try {
+      const raw = localStorage.getItem(USED_PREFIX_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveUsedPrefix(prefix) {
+    const list = loadUsedPrefixes().filter((p) => p !== prefix);
+    list.push(prefix);
+    while (list.length > USED_PREFIX_MAX) list.shift();
+    localStorage.setItem(USED_PREFIX_KEY, JSON.stringify(list));
+  }
+
   function randomPrefix() {
-    const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-    const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
-    const num = Math.floor(10 + Math.random() * 89);
-    return `${a}${n}${num}`;
+    const used = new Set(loadUsedPrefixes());
+    const current = ($("#prefix-input")?.value || "").trim().toLowerCase();
+    if (current) used.add(current);
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+      const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+      const num = Math.floor(1000 + Math.random() * 9000); // 4 digits
+      const prefix = `${a}${n}${num}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!used.has(prefix)) {
+        saveUsedPrefix(prefix);
+        return prefix;
+      }
+    }
+
+    // Absolute fallback — still unique
+    const fallback = `user${Date.now().toString(36)}${Math.floor(Math.random() * 999)}`;
+    saveUsedPrefix(fallback);
+    return fallback;
   }
 
   // ---------- Inbox load ----------

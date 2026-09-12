@@ -1,33 +1,27 @@
 # Private Webmail
 
-Clients see the inbox UI only. **Seller setup + backend live in `_seller/`** (not published by GitHub Pages).
+**Seller docs:** [`_seller/READY_TO_SELL.md`](_seller/READY_TO_SELL.md) · [`_seller/SELLER_PLAYBOOK.md`](_seller/SELLER_PLAYBOOK.md)
 
-## Protect (important)
+Per client = **different domain**; you set Sheet + Worker + `config` manually. Client gets URL + password only.
 
-1. Apps Script URL stays in **Cloudflare Worker** only (`GAS_WEBAPP_URL`) — not in the website.
-2. Site calls **`/api`** → Worker route on your domain.
-3. Public JS is **obfuscated**: edit `_src/js/`, then run `npm run protect` before push.
-4. Prefer a **Private** GitHub repo so others cannot browse source on GitHub.
-
-Full guide: [`_seller/SELLER_PLAYBOOK.md`](_seller/SELLER_PLAYBOOK.md)
-
-## Local edit flow
+## Edit → ship
 
 ```powershell
-# 1) Edit readable code
-#    _src/js/*.js   and   js/config.js (or _src/js/config.js)
-
-npm install
-npm run protect   # writes obfuscated files into js/
+# edit _src/js/*
+npm run protect
 git add . ; git commit -m "…" ; git push
 ```
 
-## Seller only (`_src/js/config.js` → copied to `js/config.js`)
+## Config (`_src/js/config.js`)
 
 ```js
-apiUrl: "/api",           // Cloudflare route → Worker
-googleScriptUrl: "",      // leave empty on public site
-demoMode: false,
-domains: ["yourdomain.com"],
+domains: ["clientdomain.com"],
 defaultPassword: "…",
+apiUrl: "/api",
+googleScriptUrl: "",
+demoMode: false,
 ```
+
+## Gmail copy
+
+Worker variable `FORWARD_TO` = verified Email Routing destination (not Apps Script).

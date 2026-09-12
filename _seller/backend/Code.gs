@@ -1,16 +1,19 @@
 /**
  * Private Webmail — Google Apps Script (Code.gs)
- * 1. Create a Google Sheet named "Inbox" with headers in row 1:
- *    id | to | from | subject | date | bodyText | bodyHtml
- * 2. Extensions → Apps Script → paste this file → Deploy → New deployment
- *    Type: Web app | Execute as: Me | Who has access: Anyone
- * 3. Copy the Web App URL into the frontend Settings.
+ *
+ * Deploy: Web app | Execute as: Me | Who has access: Anyone
+ *
+ * Gmail copy: set FORWARD_TO_GMAIL, then run testForwardGmail() once
+ * from the editor (▶) and click Allow — otherwise copies will silently fail.
  */
 
 const SHEET_NAME = 'Inbox';
 
-/** Copy of every new inbound email goes here (Option B). Leave '' to disable. */
-const FORWARD_TO_GMAIL = 'glitterhost0@gmail.com';
+/** Bump this when you paste — check /api?action=list for "codeVersion". */
+const CODE_VERSION = 'forward-v3';
+
+/** Prefer Worker env FORWARD_TO for Gmail copies. Leave '' here to avoid doubles. */
+const FORWARD_TO_GMAIL = '';
 
 function doGet(e) {
   return handleRequest(e, 'GET');
@@ -29,7 +32,14 @@ function handleRequest(e, method) {
     const action = (params.action || (method === 'GET' ? 'list' : 'ingest')).toLowerCase();
 
     if (action === 'list') {
-      return json_({ ok: true, emails: listEmails_(params.to || '') });
+      // Touch sheet so forwardStatus header is created even before new mail
+      sheet_();
+      return json_({
+        ok: true,
+        codeVersion: CODE_VERSION,
+        forwardTo: FORWARD_TO_GMAIL || null,
+        emails: listEmails_(params.to || ''),
+      });
     }
     if (action === 'delete') {
       deleteEmail_(params.id);
@@ -37,7 +47,7 @@ function handleRequest(e, method) {
     }
     if (action === 'ingest' || action === 'receive') {
       const row = ingest_(params);
-      return json_({ ok: true, id: row.id });
+      return json_({ ok: true, id: row.id, forwarded: row.forwarded });
     }
     return json_({ ok: false, error: 'Unknown action' });
   } catch (err) {
@@ -59,9 +69,17 @@ function sheet_() {
   let sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) {
     sh = ss.insertSheet(SHEET_NAME);
-    sh.appendRow(['id', 'to', 'from', 'subject', 'date', 'bodyText', 'bodyHtml']);
+    sh.appendRow(['id', 'to', 'from', 'subject', 'date', 'bodyText', 'bodyHtml', 'forwardStatus']);
   }
+  ensureForwardCol_(sh);
   return sh;
+}
+
+function ensureForwardCol_(sh) {
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  if (headers.indexOf('forwardStatus') === -1) {
+    sh.getRange(1, headers.length + 1).setValue('forwardStatus');
+  }
 }
 
 function listEmails_(toFilter) {
@@ -97,37 +115,104 @@ function ingest_(p) {
   const bodyText = p.bodyText || p.body || '';
   const bodyHtml = p.bodyHtml || p.html || '';
 
-  sh.appendRow([id, to, from, subject, date, bodyText, bodyHtml]);
-
+  let forwardStatus = '';
   try {
     forwardCopy_({ to: to, from: from, subject: subject, bodyText: bodyText, bodyHtml: bodyHtml });
+    forwardStatus = 'sent:' + new Date().toISOString();
   } catch (err) {
-    // Don't fail ingest if Gmail forward fails
-    console.error('forwardCopy_ failed: ' + err);
+    forwardStatus = 'error:' + String(err);
   }
 
-  return { id: id };
+  sh.appendRow([id, to, from, subject, date, bodyText, bodyHtml, forwardStatus]);
+
+  return { id: id, forwarded: forwardStatus };
+}
+
+/**
+ * RUN ONCE after paste: dropdown → setupForwarding → ▶ Run → Allow.
+ * Creates forwardStatus column + sends a test Gmail.
+ */
+function setupForwarding() {
+  const sh = sheet_();
+  ensureForwardCol_(sh);
+  testForwardGmail();
+  try {
+    SpreadsheetApp.getUi().alert(
+      'OK: forwardStatus column ready.\nTest email sent to ' +
+        FORWARD_TO_GMAIL +
+        '\n\nNEXT: Deploy → Manage deployments → pencil → New version → Deploy'
+    );
+  } catch (e) {
+    Logger.log('setupForwarding done — now Deploy New version');
+  }
+}
+
+function testForwardGmail() {
+  if (!FORWARD_TO_GMAIL) {
+    throw new Error('FORWARD_TO_GMAIL is empty');
+  }
+  forwardCopy_({
+    to: 'test@ygmail.cfd',
+    from: 'setup@ygmail.cfd',
+    subject: 'ygmail forward test OK',
+    bodyText: 'If you see this in Gmail (or Spam), forwarding works.',
+    bodyHtml: '<p>If you see this in Gmail (or Spam), <b>forwarding works</b>.</p>',
+  });
+  Logger.log('Sent test to ' + FORWARD_TO_GMAIL);
 }
 
 function forwardCopy_(mail) {
   if (!FORWARD_TO_GMAIL) return;
 
-  const subj = '[ygmail] ' + (mail.subject || '(no subject)');
-  const plain =
+  const subj = '[ygmail] ' + String(mail.subject || '(no subject)').substring(0, 200);
+  const header =
     'To: ' + (mail.to || '') + '\n' +
     'From: ' + (mail.from || '') + '\n' +
-    'Subject: ' + (mail.subject || '') + '\n\n' +
-    (mail.bodyText || '(see HTML body)');
+    'Subject: ' + (mail.subject || '') + '\n\n';
 
-  const opts = {
-    name: 'ygmail.cfd',
-    replyTo: mail.from || undefined,
-  };
-  if (mail.bodyHtml) {
-    opts.htmlBody = mail.bodyHtml;
+  // Large HTML from Netflix/FB/etc. often breaks MailApp — keep forward small
+  const plainBody = header + String(mail.bodyText || stripTags_(mail.bodyHtml) || '(empty)')
+    .substring(0, 15000);
+
+  const htmlSnippet = String(mail.bodyHtml || '')
+    .substring(0, 35000);
+  const html =
+    '<pre style="font:13px sans-serif;white-space:pre-wrap">' +
+    escapeHtml_(header) +
+    '</pre><hr>' +
+    (htmlSnippet
+      ? htmlSnippet
+      : '<pre style="white-space:pre-wrap">' + escapeHtml_(plainBody) + '</pre>');
+
+  try {
+    MailApp.sendEmail({
+      to: FORWARD_TO_GMAIL,
+      subject: subj,
+      body: plainBody,
+      htmlBody: html,
+      name: 'ygmail.cfd',
+    });
+  } catch (err) {
+    // Fallback: text-only (almost always works)
+    MailApp.sendEmail(FORWARD_TO_GMAIL, subj, plainBody);
   }
+}
 
-  MailApp.sendEmail(FORWARD_TO_GMAIL, subj, plain, opts);
+function stripTags_(html) {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeHtml_(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function deleteEmail_(id) {
