@@ -10,7 +10,7 @@
 const SHEET_NAME = 'Inbox';
 
 /** Bump this when you paste — check /api?action=list for "codeVersion". */
-const CODE_VERSION = 'auth-v1';
+const CODE_VERSION = 'auth-v2';
 
 /** Prefer Worker env FORWARD_TO for Gmail copies. Leave '' here to avoid doubles. */
 const FORWARD_TO_GMAIL = '';
@@ -98,32 +98,62 @@ function setStoredHash_(password) {
   props.setProperty('sessionEpoch', String(Date.now()));
 }
 
+function getOwnerHash_() {
+  return PropertiesService.getScriptProperties().getProperty('ownerPinHash') || '';
+}
+
+function setOwnerHash_(pin) {
+  PropertiesService.getScriptProperties().setProperty(
+    'ownerPinHash',
+    hashPassword_(pin)
+  );
+}
+
+function assertOwnerPin_(p) {
+  const pin = String(p.ownerPin || p.ownerPassword || '');
+  const bootstrap = String(p.ownerBootstrap || p.bootstrapOwner || '');
+  if (!pin) return { ok: false, error: 'Owner PIN required' };
+
+  const stored = getOwnerHash_();
+  if (!stored) {
+    if (!bootstrap || pin !== bootstrap) {
+      return { ok: false, error: 'Owner PIN incorrect' };
+    }
+    setOwnerHash_(pin);
+    return { ok: true };
+  }
+  if (hashPassword_(pin) !== stored) {
+    return { ok: false, error: 'Owner PIN incorrect' };
+  }
+  return { ok: true };
+}
+
 function getSessionEpoch_() {
   return PropertiesService.getScriptProperties().getProperty('sessionEpoch') || '0';
 }
 
 /**
- * LOCKOUT RECOVERY — run this in Apps Script editor (▶ Run), then Deploy New version.
- * Sets site password to RECOVERY_PASSWORD below (same as config defaultPassword).
+ * LOCKOUT RECOVERY — run in Apps Script editor (▶ Run), then Deploy New version.
  */
 const RECOVERY_PASSWORD = 'grashiex123';
+const RECOVERY_OWNER_PIN = 'grashiex-owner';
 
 function resetSitePassword() {
   setStoredHash_(RECOVERY_PASSWORD);
-  Logger.log('Password reset to: ' + RECOVERY_PASSWORD);
+  setOwnerHash_(RECOVERY_OWNER_PIN);
+  Logger.log('Unlock password: ' + RECOVERY_PASSWORD);
+  Logger.log('Owner PIN: ' + RECOVERY_OWNER_PIN);
   try {
     SpreadsheetApp.getUi().alert(
-      'Password reset OK.\n\nLogin with: ' + RECOVERY_PASSWORD +
-      '\n\nThen: Deploy → Manage deployments → pencil → New version → Deploy'
+      'Reset OK.\n\nUnlock password: ' + RECOVERY_PASSWORD +
+      '\nOwner PIN: ' + RECOVERY_OWNER_PIN +
+      '\n\nDeploy → Manage deployments → pencil → New version → Deploy'
     );
-  } catch (e) {
-    // UI not available in some contexts
-  }
+  } catch (e) {}
 }
 
 /**
- * First login: if no hash yet, bootstrap password (from config defaultPassword) becomes the site password.
- * After buyer changes password, only the new one works on every device.
+ * First login: bootstrap unlock password from config defaultPassword.
  */
 function authPassword_(p) {
   const password = String(p.password || '');
@@ -145,21 +175,16 @@ function authPassword_(p) {
   return { ok: true, codeVersion: CODE_VERSION, sessionEpoch: getSessionEpoch_() };
 }
 
+/**
+ * Change unlock password — OWNER PIN required (not shared with Person 1/2/3).
+ * After change, old unlock password dies on every device.
+ */
 function setPassword_(p) {
-  const current = String(p.currentPassword || p.oldPassword || '');
   const next = String(p.newPassword || '');
-  const bootstrap = String(p.bootstrap || '');
-
   if (next.length < 4) return { ok: false, error: 'Password must be at least 4 characters' };
 
-  const stored = getStoredHash_();
-  if (!stored) {
-    if (!current || current !== bootstrap) {
-      return { ok: false, error: 'Current password incorrect' };
-    }
-  } else if (hashPassword_(current) !== stored) {
-    return { ok: false, error: 'Current password incorrect' };
-  }
+  const owner = assertOwnerPin_(p);
+  if (!owner.ok) return owner;
 
   setStoredHash_(next);
   return { ok: true, codeVersion: CODE_VERSION, sessionEpoch: getSessionEpoch_() };

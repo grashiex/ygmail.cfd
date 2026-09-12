@@ -70,14 +70,14 @@ window.Auth = (() => {
     }
   }
 
-  async function changePassword(currentPassword, newPassword) {
+  async function changePassword(ownerPin, newPassword) {
     if (APP_CONFIG.demoMode === true) {
       throw new Error("Password change is disabled in demo mode");
     }
     if (typeof Api === "undefined" || !Api.changePassword) {
       throw new Error("Password API unavailable");
     }
-    const data = await Api.changePassword(currentPassword, newPassword);
+    const data = await Api.changePassword(ownerPin, newPassword);
     if (data && data.sessionEpoch != null) {
       markUnlocked(data.sessionEpoch);
     }

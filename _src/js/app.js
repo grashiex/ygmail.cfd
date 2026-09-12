@@ -756,7 +756,7 @@
     $("#set-admin-link").value = contactAdminLink();
     $("#set-password").value = "";
     $("#set-password-confirm").value = "";
-    if ($("#set-password-current")) $("#set-password-current").value = "";
+    if ($("#set-owner-pin")) $("#set-owner-pin").value = "";
     $("#set-logo-file").value = "";
     $("#set-bg-file").value = "";
     updateLogoPreview(brandLogo());
@@ -910,24 +910,24 @@
       Themes.apply(themeId);
     }
 
-    const currentPass = ($("#set-password-current")?.value || "").trim();
+    const ownerPin = ($("#set-owner-pin")?.value || "").trim();
     const newPass = $("#set-password").value;
     const confirmPass = $("#set-password-confirm").value;
-    if (newPass || confirmPass || currentPass) {
+    if (newPass || confirmPass || ownerPin) {
       if (newPass.length < 4) {
-        toast("Password must be at least 4 characters", "error");
+        toast("Unlock password must be at least 4 characters", "error");
         return;
       }
       if (newPass !== confirmPass) {
-        toast("Passwords do not match", "error");
+        toast("Unlock passwords do not match", "error");
         return;
       }
-      if (!currentPass) {
-        toast("Enter current password to change it", "error");
+      if (!ownerPin) {
+        toast("Owner PIN required to change unlock password", "error");
         return;
       }
       try {
-        await Auth.changePassword(currentPass, newPass);
+        await Auth.changePassword(ownerPin, newPass);
       } catch (err) {
         toast(err.message || "Could not change password", "error");
         return;

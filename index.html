@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/styles.css?v=20260912n" />
+    <link rel="stylesheet" href="/css/styles.css?v=20260912o" />
   </head>
   <body data-theme="dark-cyber">
     <!-- Password Gatekeeper -->
@@ -252,17 +252,24 @@
           </div>
         </div>
 
+        <div class="field" style="margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border)">
+          <label>Change unlock password (owner only)</label>
+          <p class="field-hint">
+            Share the <strong>unlock password</strong> with users (Person 1/2/3).
+            Keep the <strong>Owner PIN</strong> private — only you can kick them by changing the unlock password.
+          </p>
+        </div>
         <div class="field">
-          <label for="set-password-current">Current Password (required to change)</label>
+          <label for="set-owner-pin">Owner PIN</label>
           <input
             type="password"
-            id="set-password-current"
-            placeholder="Required only when setting a new password"
-            autocomplete="current-password"
+            id="set-owner-pin"
+            placeholder="Owner PIN (do not share)"
+            autocomplete="off"
           />
         </div>
         <div class="field">
-          <label for="set-password">New Password</label>
+          <label for="set-password">New Unlock Password</label>
           <input
             type="password"
             id="set-password"
@@ -271,14 +278,13 @@
           />
         </div>
         <div class="field">
-          <label for="set-password-confirm">Confirm New Password</label>
+          <label for="set-password-confirm">Confirm New Unlock Password</label>
           <input
             type="password"
             id="set-password-confirm"
-            placeholder="Repeat new password"
+            placeholder="Repeat new unlock password"
             autocomplete="new-password"
           />
-          <p class="field-hint">Password is saved on the server — works on all devices. Old password stops working everywhere.</p>
         </div>
 
         <div class="modal-actions">
@@ -290,12 +296,12 @@
 
     <div id="toasts" aria-live="polite"></div>
 
-    <script src="/js/config.js?v=20260912n"></script>
-    <script src="/js/auth.js?v=20260912n"></script>
-    <script src="/js/themes.js?v=20260912n"></script>
-    <script src="/js/extractors.js?v=20260912n"></script>
-    <script src="/js/demo-data.js?v=20260912n"></script>
-    <script src="/js/api.js?v=20260912n"></script>
-    <script src="/js/app.js?v=20260912n"></script>
+    <script src="/js/config.js?v=20260912o"></script>
+    <script src="/js/auth.js?v=20260912o"></script>
+    <script src="/js/themes.js?v=20260912o"></script>
+    <script src="/js/extractors.js?v=20260912o"></script>
+    <script src="/js/demo-data.js?v=20260912o"></script>
+    <script src="/js/api.js?v=20260912o"></script>
+    <script src="/js/app.js?v=20260912o"></script>
   </body>
 </html>

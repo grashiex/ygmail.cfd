@@ -8,6 +8,9 @@ window.APP_CONFIG = {
   defaultPrefix: "",
   defaultPassword: "grashiex123",
 
+  // OWNER ONLY — never give to Person 1/2/3. Required to change unlock password.
+  ownerPin: "grashiex-owner",
+
   contactAdminLabel: "Contact admin",
   contactAdminLink: "https://t.me/grashiex",
 

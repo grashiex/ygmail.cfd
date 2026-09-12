@@ -61,12 +61,12 @@ window.Api = (() => {
     });
   }
 
-  async function changePassword(currentPassword, newPassword) {
+  async function changePassword(ownerPin, newPassword) {
     return postAction({
       action: "setPassword",
-      currentPassword: String(currentPassword || ""),
+      ownerPin: String(ownerPin || ""),
+      ownerBootstrap: String(APP_CONFIG.ownerPin || ""),
       newPassword: String(newPassword || ""),
-      bootstrap: String(APP_CONFIG.defaultPassword || ""),
     });
   }
 
