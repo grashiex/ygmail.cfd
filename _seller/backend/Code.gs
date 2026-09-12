@@ -3,7 +3,7 @@
  *
  * SETUP (once per buyer sheet):
  * 1. Paste this file → Save
- * 2. Run resetAuth_ (dropdown → resetAuth_ → ▶) → Allow
+ * 2. Run resetAuth (dropdown → resetAuth → ▶) → Allow
  * 3. Deploy → New deployment OR Manage deployments → ✏️ → New version → Deploy
  *    Execute as: Me | Who has access: Anyone
  * 4. Put /exec URL in Worker GAS_WEBAPP_URL only
@@ -14,7 +14,7 @@
 const SHEET_NAME = 'Inbox';
 const CODE_VERSION = 'stable-v1';
 
-/** Defaults after resetAuth_ — match js/config.js */
+/** Defaults after resetAuth — match js/config.js */
 const DEFAULT_UNLOCK = 'grashiex123';
 const DEFAULT_OWNER_PIN = 'grashiex-owner';
 
@@ -140,18 +140,18 @@ function setOwner_(pin) {
  * RUN THIS after paste (▶ Run). No popup — check Execution log.
  * Sets unlock = grashiex123 , owner PIN = grashiex-owner
  */
-function resetAuth_() {
+function resetAuth() {
   setUnlock_(DEFAULT_UNLOCK);
   setOwner_(DEFAULT_OWNER_PIN);
-  Logger.log('OK resetAuth_');
+  Logger.log('OK resetAuth');
   Logger.log('Unlock password: ' + DEFAULT_UNLOCK);
   Logger.log('Owner PIN: ' + DEFAULT_OWNER_PIN);
   Logger.log('Next: Deploy → Manage deployments → Edit (pencil) → New version → Deploy');
 }
 
-/** Alias so old instructions still work */
+/** Same as resetAuth */
 function resetSitePassword() {
-  resetAuth_();
+  resetAuth();
 }
 
 function auth_(p) {
