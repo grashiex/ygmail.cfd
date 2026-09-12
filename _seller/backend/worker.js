@@ -73,6 +73,42 @@ export default {
     try {
       if (request.method === "GET") {
         const incoming = new URL(request.url);
+        const action = (incoming.searchParams.get("action") || "list").toLowerCase();
+
+        // Local diagnostic — works even if Apps Script is outdated
+        if (action === "ping" || action === "version") {
+          const target = new URL(gasUrl);
+          target.searchParams.set("action", "list");
+          let gasBody = "";
+          let gasStatus = 0;
+          let parsed = null;
+          try {
+            const probe = await fetch(target.toString(), { method: "GET" });
+            gasStatus = probe.status;
+            gasBody = await probe.text();
+            parsed = JSON.parse(gasBody);
+          } catch (err) {
+            gasBody = String(err);
+          }
+          const codeVersion = parsed && parsed.codeVersion ? parsed.codeVersion : null;
+          const updated = codeVersion === "stable-v1";
+          return json_(
+            {
+              ok: true,
+              worker: true,
+              gasStatus,
+              codeVersion,
+              appsScriptUpdated: updated,
+              hint: updated
+                ? "Apps Script OK"
+                : "Luma ang Apps Script sa GAS_WEBAPP_URL. Paste Code.gs → Deploy → Edit existing → New version. Worker URL must match that /exec.",
+              errorFromGas: parsed && parsed.error ? parsed.error : null,
+            },
+            200,
+            cors
+          );
+        }
+
         const target = new URL(gasUrl);
         incoming.searchParams.forEach((v, k) => target.searchParams.set(k, v));
         if (!target.searchParams.has("action")) {
