@@ -25,20 +25,22 @@ function doPost(e) {
 
 function handleRequest(e, method) {
   try {
-    const params = method === 'GET'
-      ? (e.parameter || {})
-      : parseBody_(e);
+    const queryParams = (e && e.parameter) || {};
+    const bodyParams = method === 'GET' ? {} : parseBody_(e);
+    // Body wins over query; both supported (Worker may pass action in URL)
+    const params = Object.assign({}, queryParams, bodyParams);
 
-    const action = (params.action || (method === 'GET' ? 'list' : 'ingest')).toLowerCase();
+    const action = String(
+      params.action || (method === 'GET' ? 'list' : 'ingest')
+    ).toLowerCase();
 
-    if (action === 'auth') {
+    if (action === 'auth' || action === 'login' || action === 'verify') {
       return json_(authPassword_(params));
     }
-    if (action === 'setpassword') {
+    if (action === 'setpassword' || action === 'changepassword') {
       return json_(setPassword_(params));
     }
     if (action === 'list') {
-      // Touch sheet so forwardStatus header is created even before new mail
       sheet_();
       return json_({
         ok: true,
@@ -56,7 +58,7 @@ function handleRequest(e, method) {
       const row = ingest_(params);
       return json_({ ok: true, id: row.id, forwarded: row.forwarded });
     }
-    return json_({ ok: false, error: 'Unknown action' });
+    return json_({ ok: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }

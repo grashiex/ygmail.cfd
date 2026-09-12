@@ -93,7 +93,16 @@ export default {
 
       if (request.method === "POST") {
         const body = await request.text();
-        const res = await fetch(gasUrl, {
+        const target = new URL(gasUrl);
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed && parsed.action) {
+            target.searchParams.set("action", String(parsed.action));
+          }
+        } catch (_) {
+          /* plain body */
+        }
+        const res = await fetch(target.toString(), {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body,

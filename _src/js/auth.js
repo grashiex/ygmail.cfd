@@ -53,12 +53,21 @@ window.Auth = (() => {
     if (typeof Api === "undefined" || !Api.verifyPassword) {
       return unlockLocal(password);
     }
-    const data = await Api.verifyPassword(password);
-    if (data && data.ok) {
-      markUnlocked(data.sessionEpoch);
-      return true;
+    try {
+      const data = await Api.verifyPassword(password);
+      if (data && data.ok) {
+        markUnlocked(data.sessionEpoch);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      const msg = String(err.message || err || "");
+      // Old Apps Script deploy — allow config defaultPassword so seller isn't locked out
+      if (/unknown action/i.test(msg)) {
+        return unlockLocal(password);
+      }
+      throw err;
     }
-    return false;
   }
 
   async function changePassword(currentPassword, newPassword) {
