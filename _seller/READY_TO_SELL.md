@@ -1,4 +1,9 @@
-# Ready to sell — per client (ikaw magse-set manually)
+# Ready to sell — per client
+
+**Buong from-scratch guide (ikaw lang, walang AI):**  
+→ **[`FROM_SCRATCH.md`](./FROM_SCRATCH.md)**
+
+Short checklist version below; detalye lahat nandoon.
 
 Bawat client = **sariling domain**. Ikaw ang mag-setup. Client = URL + password + Customize lang.
 
