@@ -10,7 +10,7 @@
 const SHEET_NAME = 'Inbox';
 
 /** Bump this when you paste — check /api?action=list for "codeVersion". */
-const CODE_VERSION = 'forward-v3';
+const CODE_VERSION = 'auth-v1';
 
 /** Prefer Worker env FORWARD_TO for Gmail copies. Leave '' here to avoid doubles. */
 const FORWARD_TO_GMAIL = '';
@@ -31,12 +31,19 @@ function handleRequest(e, method) {
 
     const action = (params.action || (method === 'GET' ? 'list' : 'ingest')).toLowerCase();
 
+    if (action === 'auth') {
+      return json_(authPassword_(params));
+    }
+    if (action === 'setpassword') {
+      return json_(setPassword_(params));
+    }
     if (action === 'list') {
       // Touch sheet so forwardStatus header is created even before new mail
       sheet_();
       return json_({
         ok: true,
         codeVersion: CODE_VERSION,
+        sessionEpoch: getSessionEpoch_(),
         forwardTo: FORWARD_TO_GMAIL || null,
         emails: listEmails_(params.to || ''),
       });
@@ -62,6 +69,79 @@ function parseBody_(e) {
   } catch (err) {
     return {};
   }
+}
+
+/** SHA-256 hex of site password (shared across all devices). */
+function hashPassword_(pw) {
+  const raw = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(pw || ''),
+    Utilities.Charset.UTF_8
+  );
+  return raw
+    .map(function (b) {
+      const v = b < 0 ? b + 256 : b;
+      return ('0' + v.toString(16)).slice(-2);
+    })
+    .join('');
+}
+
+function getStoredHash_() {
+  return PropertiesService.getScriptProperties().getProperty('sitePasswordHash') || '';
+}
+
+function setStoredHash_(password) {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('sitePasswordHash', hashPassword_(password));
+  props.setProperty('sessionEpoch', String(Date.now()));
+}
+
+function getSessionEpoch_() {
+  return PropertiesService.getScriptProperties().getProperty('sessionEpoch') || '0';
+}
+
+/**
+ * First login: if no hash yet, bootstrap password (from config defaultPassword) becomes the site password.
+ * After buyer changes password, only the new one works on every device.
+ */
+function authPassword_(p) {
+  const password = String(p.password || '');
+  const bootstrap = String(p.bootstrap || '');
+  if (!password) return { ok: false, error: 'Missing password' };
+
+  const stored = getStoredHash_();
+  if (!stored) {
+    if (!bootstrap || password !== bootstrap) {
+      return { ok: false, error: 'Invalid password' };
+    }
+    setStoredHash_(password);
+    return { ok: true, codeVersion: CODE_VERSION, initialized: true, sessionEpoch: getSessionEpoch_() };
+  }
+
+  if (hashPassword_(password) !== stored) {
+    return { ok: false, error: 'Invalid password' };
+  }
+  return { ok: true, codeVersion: CODE_VERSION, sessionEpoch: getSessionEpoch_() };
+}
+
+function setPassword_(p) {
+  const current = String(p.currentPassword || p.oldPassword || '');
+  const next = String(p.newPassword || '');
+  const bootstrap = String(p.bootstrap || '');
+
+  if (next.length < 4) return { ok: false, error: 'Password must be at least 4 characters' };
+
+  const stored = getStoredHash_();
+  if (!stored) {
+    if (!current || current !== bootstrap) {
+      return { ok: false, error: 'Current password incorrect' };
+    }
+  } else if (hashPassword_(current) !== stored) {
+    return { ok: false, error: 'Current password incorrect' };
+  }
+
+  setStoredHash_(next);
+  return { ok: true, codeVersion: CODE_VERSION, sessionEpoch: getSessionEpoch_() };
 }
 
 function sheet_() {

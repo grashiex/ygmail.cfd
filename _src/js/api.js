@@ -1,12 +1,29 @@
 /**
- * Live inbox API — talks to Cloudflare Worker /api (Apps Script URL stays secret).
+ * Live inbox API — Cloudflare Worker /api → Apps Script.
  */
 window.Api = (() => {
   function getBaseUrl() {
     const api = String(APP_CONFIG.apiUrl || "").trim();
     if (api) return api.replace(/\/$/, "");
-    // Legacy fallback (avoid using this on public sites)
     return String(APP_CONFIG.googleScriptUrl || "").trim();
+  }
+
+  async function postAction(body) {
+    const base = getBaseUrl();
+    if (!base) throw new Error("Inbox backend is not configured.");
+    const url = new URL(base, window.location.origin);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    if (!data.ok && data.error) throw new Error(data.error);
+    return data;
   }
 
   async function listEmails(toAddress) {
@@ -26,26 +43,31 @@ window.Api = (() => {
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const data = await res.json();
     if (!data.ok && data.error) throw new Error(data.error);
-    return (data.emails || data.messages || []).map(normalize);
+    return {
+      emails: (data.emails || data.messages || []).map(normalize),
+      sessionEpoch: data.sessionEpoch,
+    };
   }
 
   async function deleteEmail(id) {
-    const base = getBaseUrl();
-    if (!base) throw new Error("Inbox backend is not configured.");
+    return postAction({ action: "delete", id });
+  }
 
-    const url = new URL(base, window.location.origin);
-    const res = await fetch(url.toString(), {
-      method: "POST",
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "delete", id }),
+  async function verifyPassword(password) {
+    return postAction({
+      action: "auth",
+      password: String(password || ""),
+      bootstrap: String(APP_CONFIG.defaultPassword || ""),
     });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    if (!data.ok && data.error) throw new Error(data.error);
-    return data;
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    return postAction({
+      action: "setPassword",
+      currentPassword: String(currentPassword || ""),
+      newPassword: String(newPassword || ""),
+      bootstrap: String(APP_CONFIG.defaultPassword || ""),
+    });
   }
 
   function normalize(row) {
@@ -71,5 +93,13 @@ window.Api = (() => {
     return { name: from || "Unknown", email: from || "" };
   }
 
-  return { listEmails, deleteEmail, getBaseUrl, normalize, parseFrom };
+  return {
+    listEmails,
+    deleteEmail,
+    verifyPassword,
+    changePassword,
+    getBaseUrl,
+    normalize,
+    parseFrom,
+  };
 })();

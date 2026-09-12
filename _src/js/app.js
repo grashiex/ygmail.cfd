@@ -303,7 +303,17 @@
       if (isDemoMode()) {
         messages = DemoData.getMessages(address);
       } else {
-        messages = await Api.listEmails(address);
+        const result = await Api.listEmails(address);
+        if (
+          result.sessionEpoch != null &&
+          !Auth.checkSessionEpoch(result.sessionEpoch)
+        ) {
+          Auth.lock();
+          showGate();
+          toast("Password changed — log in again", "error");
+          return;
+        }
+        messages = result.emails;
       }
       state.messages = messages.map((m) => {
         const extracted =
@@ -549,24 +559,36 @@
     return false;
   }
 
-  $("#gate-form").addEventListener("submit", (e) => {
+  $("#gate-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const pw = $("#gate-password").value;
     const card = $("#gate-card");
-    if (Auth.unlock(pw)) {
-      $("#gate-error").textContent = "";
-      card.classList.remove("shake");
-      $("#gate").classList.add("is-hiding");
-      setTimeout(() => {
-        showApp();
-        $("#gate").classList.remove("is-hiding");
-        loadInbox({ silent: true });
-      }, 280);
-    } else {
-      $("#gate-error").textContent = "Incorrect password";
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    $("#gate-error").textContent = "";
+    try {
+      const ok = await Auth.unlock(pw);
+      if (ok) {
+        card.classList.remove("shake");
+        $("#gate").classList.add("is-hiding");
+        setTimeout(() => {
+          showApp();
+          $("#gate").classList.remove("is-hiding");
+          loadInbox({ silent: true });
+        }, 280);
+      } else {
+        $("#gate-error").textContent = "Incorrect password";
+        card.classList.remove("shake");
+        void card.offsetWidth;
+        card.classList.add("shake");
+      }
+    } catch (err) {
+      $("#gate-error").textContent = err.message || "Login failed";
       card.classList.remove("shake");
       void card.offsetWidth;
       card.classList.add("shake");
+    } finally {
+      if (btn) btn.disabled = false;
     }
   });
 
@@ -732,6 +754,7 @@
     $("#set-admin-link").value = contactAdminLink();
     $("#set-password").value = "";
     $("#set-password-confirm").value = "";
+    if ($("#set-password-current")) $("#set-password-current").value = "";
     $("#set-logo-file").value = "";
     $("#set-bg-file").value = "";
     updateLogoPreview(brandLogo());
@@ -870,7 +893,7 @@
     }
   });
 
-  $("#btn-settings-save").addEventListener("click", () => {
+  $("#btn-settings-save").addEventListener("click", async () => {
     const themeId = $("#set-theme").value;
     if (themeId === "custom") {
       const parsed =
@@ -885,15 +908,26 @@
       Themes.apply(themeId);
     }
 
+    const currentPass = ($("#set-password-current")?.value || "").trim();
     const newPass = $("#set-password").value;
     const confirmPass = $("#set-password-confirm").value;
-    if (newPass || confirmPass) {
+    if (newPass || confirmPass || currentPass) {
       if (newPass.length < 4) {
         toast("Password must be at least 4 characters", "error");
         return;
       }
       if (newPass !== confirmPass) {
         toast("Passwords do not match", "error");
+        return;
+      }
+      if (!currentPass) {
+        toast("Enter current password to change it", "error");
+        return;
+      }
+      try {
+        await Auth.changePassword(currentPass, newPass);
+      } catch (err) {
+        toast(err.message || "Could not change password", "error");
         return;
       }
     }
@@ -911,14 +945,13 @@
         "#",
       prefix: $("#prefix-input").value.trim(),
     };
-    if (newPass) patch.password = newPass;
 
     Auth.saveSettings(patch);
     applyBranding();
     syncThemeUI();
     settingsThemeSnapshot = null;
     closeSettings({ revert: false });
-    toast("Customization saved");
+    toast(newPass ? "Saved — password updated on all devices" : "Customization saved");
   });
 
   $("#theme-select").addEventListener("change", () => {

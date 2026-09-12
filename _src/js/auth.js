@@ -1,6 +1,7 @@
 /**
- * Password gate + client prefs in localStorage.
- * Seller secrets (googleScriptUrl, demoMode) never stored / always stripped.
+ * Password gate + client prefs.
+ * Site password lives on the server (Apps Script) so all devices share one password.
+ * localStorage only keeps unlocked session + UI prefs — never the password.
  */
 window.Auth = (() => {
   const BLOCKED = [
@@ -10,29 +11,73 @@ window.Auth = (() => {
     "footerName",
     "footerLink",
     "footerYear",
+    "password",
   ];
 
   function isUnlocked() {
     return localStorage.getItem(APP_CONFIG.sessionKey) === "1";
   }
 
-  function getPassword() {
-    const s = getSettings();
-    const custom = String(s.password || "").trim();
-    if (custom) return custom;
-    return String(APP_CONFIG.defaultPassword || "").trim();
+  function markUnlocked(sessionEpoch) {
+    localStorage.setItem(APP_CONFIG.sessionKey, "1");
+    if (sessionEpoch != null) {
+      localStorage.setItem(APP_CONFIG.sessionKey + "_epoch", String(sessionEpoch));
+    }
   }
 
-  function unlock(password) {
-    if (String(password || "").trim() === getPassword()) {
-      localStorage.setItem(APP_CONFIG.sessionKey, "1");
+  function getSessionEpoch() {
+    return localStorage.getItem(APP_CONFIG.sessionKey + "_epoch") || "";
+  }
+
+  function checkSessionEpoch(serverEpoch) {
+    if (serverEpoch == null || serverEpoch === "") return true;
+    const local = getSessionEpoch();
+    if (!local) return true;
+    return String(local) === String(serverEpoch);
+  }
+
+  /** Local-only unlock (demo mode). */
+  function unlockLocal(password) {
+    const expected = String(APP_CONFIG.defaultPassword || "").trim();
+    if (String(password || "").trim() === expected) {
+      markUnlocked("demo");
       return true;
     }
     return false;
   }
 
+  async function unlock(password) {
+    if (APP_CONFIG.demoMode === true) {
+      return unlockLocal(password);
+    }
+    if (typeof Api === "undefined" || !Api.verifyPassword) {
+      return unlockLocal(password);
+    }
+    const data = await Api.verifyPassword(password);
+    if (data && data.ok) {
+      markUnlocked(data.sessionEpoch);
+      return true;
+    }
+    return false;
+  }
+
+  async function changePassword(currentPassword, newPassword) {
+    if (APP_CONFIG.demoMode === true) {
+      throw new Error("Password change is disabled in demo mode");
+    }
+    if (typeof Api === "undefined" || !Api.changePassword) {
+      throw new Error("Password API unavailable");
+    }
+    const data = await Api.changePassword(currentPassword, newPassword);
+    if (data && data.sessionEpoch != null) {
+      markUnlocked(data.sessionEpoch);
+    }
+    return data;
+  }
+
   function lock() {
     localStorage.removeItem(APP_CONFIG.sessionKey);
+    localStorage.removeItem(APP_CONFIG.sessionKey + "_epoch");
   }
 
   function getSettings() {
@@ -59,12 +104,6 @@ window.Auth = (() => {
         dirty = true;
       }
     });
-    ["footerName", "footerLink", "footerYear"].forEach((k) => {
-      if (k in s) {
-        delete s[k];
-        dirty = true;
-      }
-    });
     if (dirty) {
       localStorage.setItem(APP_CONFIG.settingsKey, JSON.stringify(s));
     }
@@ -72,5 +111,15 @@ window.Auth = (() => {
 
   scrubLegacySecrets();
 
-  return { isUnlocked, unlock, lock, getSettings, saveSettings, getPassword };
+  return {
+    isUnlocked,
+    unlock,
+    unlockLocal,
+    changePassword,
+    lock,
+    getSettings,
+    saveSettings,
+    checkSessionEpoch,
+    getSessionEpoch,
+  };
 })();

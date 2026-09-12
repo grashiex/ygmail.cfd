@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/styles.css?v=20260912k" />
+    <link rel="stylesheet" href="/css/styles.css?v=20260912m" />
   </head>
   <body data-theme="dark-cyber">
     <!-- Password Gatekeeper -->
@@ -253,6 +253,15 @@
         </div>
 
         <div class="field">
+          <label for="set-password-current">Current Password (required to change)</label>
+          <input
+            type="password"
+            id="set-password-current"
+            placeholder="Required only when setting a new password"
+            autocomplete="current-password"
+          />
+        </div>
+        <div class="field">
           <label for="set-password">New Password</label>
           <input
             type="password"
@@ -269,6 +278,7 @@
             placeholder="Repeat new password"
             autocomplete="new-password"
           />
+          <p class="field-hint">Password is saved on the server — works on all devices. Old password stops working everywhere.</p>
         </div>
 
         <div class="modal-actions">
@@ -280,12 +290,12 @@
 
     <div id="toasts" aria-live="polite"></div>
 
-    <script src="/js/config.js?v=20260912k"></script>
-    <script src="/js/auth.js?v=20260912k"></script>
-    <script src="/js/themes.js?v=20260912k"></script>
-    <script src="/js/extractors.js?v=20260912k"></script>
-    <script src="/js/demo-data.js?v=20260912k"></script>
-    <script src="/js/api.js?v=20260912k"></script>
-    <script src="/js/app.js?v=20260912k"></script>
+    <script src="/js/config.js?v=20260912m"></script>
+    <script src="/js/auth.js?v=20260912m"></script>
+    <script src="/js/themes.js?v=20260912m"></script>
+    <script src="/js/extractors.js?v=20260912m"></script>
+    <script src="/js/demo-data.js?v=20260912m"></script>
+    <script src="/js/api.js?v=20260912m"></script>
+    <script src="/js/app.js?v=20260912m"></script>
   </body>
 </html>
