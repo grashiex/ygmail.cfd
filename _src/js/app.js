@@ -369,14 +369,10 @@
         messages = DemoData.getMessages(address);
       } else {
         const result = await Api.listEmails(address);
-        if (
-          result.sessionEpoch != null &&
-          !Auth.checkSessionEpoch(result.sessionEpoch)
-        ) {
-          Auth.lock();
-          showGate();
-          toast("Password changed — log in again", "error");
-          return;
+        // Stay unlocked across address switches. Password gate is only for
+        // first visit / Lock button / explicit password change — never on fetch.
+        if (result.sessionEpoch != null && Auth.adoptSessionEpoch) {
+          Auth.adoptSessionEpoch(result.sessionEpoch);
         }
         messages = result.emails;
       }
