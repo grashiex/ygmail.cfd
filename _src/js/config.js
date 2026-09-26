@@ -4,7 +4,8 @@
 window.APP_CONFIG = {
   brandTitle: "ygmail.cfd",
   brandLogo: "",
-  domains: ["ygmail.cfd"],
+  // Paste user@either — dropdown switches automatically
+  domains: ["ygmail.cfd", "grashweb.sbs"],
   defaultPrefix: "",
   defaultPassword: "grashiex123",
 

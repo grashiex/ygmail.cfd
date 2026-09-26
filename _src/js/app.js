@@ -32,7 +32,12 @@
   }
 
   function brandTitle() {
-    return prefs().brandTitle || APP_CONFIG.brandTitle || "Inbox";
+    return (
+      prefs().brandTitle ||
+      APP_CONFIG.brandTitle ||
+      (typeof location !== "undefined" && location.hostname) ||
+      "Inbox"
+    );
   }
 
   function brandLogo() {
@@ -53,7 +58,63 @@
     const prefix = ($("#prefix-input").value || "").trim();
     const domain = $("#domain-select").value || domains()[0];
     if (!prefix) return "";
+    // If user left a full email in the box, don't double-append @domain
+    if (prefix.includes("@")) {
+      const parsed = parseFullEmail(prefix);
+      if (parsed) return `${parsed.local}@${parsed.domain}`;
+    }
     return `${prefix}@${domain}`;
+  }
+
+  /** Split user@domain (also tolerates mailto: and whitespace). */
+  function parseFullEmail(raw) {
+    let v = String(raw || "").trim();
+    if (!v) return null;
+    v = v.replace(/^mailto:/i, "").trim();
+    // Strip accidental surrounding quotes
+    v = v.replace(/^["']|["']$/g, "");
+    const at = v.lastIndexOf("@");
+    if (at <= 0 || at === v.length - 1) return null;
+    const local = v.slice(0, at).trim();
+    const domain = v.slice(at + 1).trim().toLowerCase().replace(/[>\s].*$/, "");
+    if (!local || !domain || domain.includes("@")) return null;
+    if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(domain)) return null;
+    return { local, domain };
+  }
+
+  /**
+   * Accept paste/type of full email: fill prefix + switch domain select.
+   * Returns true if a full address was applied.
+   */
+  function applyAddressInput(raw, { toastOnMatch } = {}) {
+    const parsed = parseFullEmail(raw);
+    if (!parsed) return false;
+
+    const sel = $("#domain-select");
+    const list = domains();
+    const hit = list.find((d) => d.toLowerCase() === parsed.domain);
+    const domainValue = hit || parsed.domain;
+
+    if (!hit) {
+      // Unknown domain — add option so fetch still uses what they pasted
+      const exists = [...sel.options].some(
+        (o) => o.value.toLowerCase() === parsed.domain
+      );
+      if (!exists) {
+        const opt = document.createElement("option");
+        opt.value = parsed.domain;
+        opt.textContent = parsed.domain;
+        sel.appendChild(opt);
+      }
+    }
+
+    $("#prefix-input").value = parsed.local;
+    sel.value = domainValue;
+    Auth.saveSettings({ prefix: parsed.local, domain: domainValue });
+    if (toastOnMatch) {
+      toast(`Using ${parsed.local}@${domainValue}`);
+    }
+    return true;
   }
 
   function contactAdminLink() {
@@ -129,11 +190,13 @@
   function populateDomains() {
     const sel = $("#domain-select");
     const list = domains();
-    const prev = sel.value;
+    const saved = Auth.getSettings().domain || "";
+    const prev = sel.value || saved;
     sel.innerHTML = list
       .map((d) => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`)
       .join("");
     if (list.includes(prev)) sel.value = prev;
+    else if (saved && list.includes(saved)) sel.value = saved;
   }
 
   // ---------- Date formatting ----------
@@ -291,6 +354,8 @@
     icon.style.animation = "spin 0.7s linear infinite";
 
     try {
+      // Split pasted user@domain before building the fetch address
+      applyAddressInput($("#prefix-input").value);
       const address = currentAddress();
       if (!address) {
         state.messages = [];
@@ -457,8 +522,24 @@
       ? pills.join("")
       : `<span style="color:var(--text-muted);font-size:0.85rem">No OTP or verification links detected</span>`;
 
-    const html = sanitizeHtml(m.bodyHtml || "");
-    const text = m.bodyText || stripTags(m.bodyHtml || m.body || "");
+    // Prefer decoded HTML (QP-safe) so ChatGPT etc. render as real email
+    const rawHtml =
+      (typeof Extractors !== "undefined" &&
+        Extractors.decodeQuotedPrintable &&
+        Extractors.decodeQuotedPrintable(m.bodyHtml || "")) ||
+      m.bodyHtml ||
+      "";
+    let html = sanitizeHtml(rawHtml);
+    let text =
+      (typeof Extractors !== "undefined" &&
+        Extractors.decodeQuotedPrintable &&
+        Extractors.decodeQuotedPrintable(m.bodyText || "")) ||
+      m.bodyText ||
+      "";
+    if (!html && /<\/?(?:html|body|table|div|p|span|a)\b/i.test(text)) {
+      html = sanitizeHtml(text);
+    }
+    if (!text) text = stripTags(html || m.body || "");
     const iframe = $("#body-html");
     iframe.style.height = "";
     iframe.onload = () => {
@@ -610,11 +691,19 @@
   });
 
   // ---------- Identity bar ----------
-  $("#prefix-input").value = Auth.getSettings().prefix || "";
+  const savedPrefix = Auth.getSettings().prefix || "";
+  $("#prefix-input").value = savedPrefix;
+  // Restore full email if it was saved that way / split on boot
+  if (savedPrefix.includes("@")) {
+    applyAddressInput(savedPrefix);
+  }
 
   $("#btn-random").addEventListener("click", () => {
     $("#prefix-input").value = randomPrefix();
-    Auth.saveSettings({ prefix: $("#prefix-input").value });
+    Auth.saveSettings({
+      prefix: $("#prefix-input").value,
+      domain: $("#domain-select").value,
+    });
     toast(`Address: ${currentAddress()}`);
     if (isDemoMode()) loadInbox({ silent: true });
   });
@@ -628,13 +717,43 @@
     copyText(addr);
   });
 
-  $("#btn-refresh").addEventListener("click", () => loadInbox());
+  $("#btn-refresh").addEventListener("click", () => {
+    applyAddressInput($("#prefix-input").value);
+    loadInbox();
+  });
 
-  $("#prefix-input").addEventListener("change", () => {
-    Auth.saveSettings({ prefix: $("#prefix-input").value.trim() });
+  function onPrefixCommit() {
+    const raw = $("#prefix-input").value;
+    if (!applyAddressInput(raw)) {
+      Auth.saveSettings({
+        prefix: raw.trim(),
+        domain: $("#domain-select").value,
+      });
+    }
+  }
+
+  $("#prefix-input").addEventListener("paste", (e) => {
+    const text = (e.clipboardData || window.clipboardData)?.getData("text");
+    if (!text || !text.includes("@")) return;
+    e.preventDefault();
+    if (applyAddressInput(text, { toastOnMatch: true })) {
+      // stay unlocked — just ready to refresh
+    }
+  });
+
+  $("#prefix-input").addEventListener("change", onPrefixCommit);
+  $("#prefix-input").addEventListener("blur", onPrefixCommit);
+
+  // Live: as soon as they type/paste a full email, strip domain into the select
+  $("#prefix-input").addEventListener("input", () => {
+    const v = $("#prefix-input").value;
+    if (v.includes("@") && parseFullEmail(v)) {
+      applyAddressInput(v);
+    }
   });
 
   $("#domain-select").addEventListener("change", () => {
+    Auth.saveSettings({ domain: $("#domain-select").value });
     if (isDemoMode()) loadInbox({ silent: true });
   });
 

@@ -30,10 +30,36 @@ window.Auth = (() => {
   }
 
   function checkSessionEpoch(serverEpoch) {
+    /**
+     * Only force re-lock when the server epoch is a *newer* bump
+     * (password change uses Date.now()). Flaky Cache/KV misses that
+     * return "0" or an older value must NOT kick users out when they
+     * only switch inbox addresses.
+     */
     if (serverEpoch == null || serverEpoch === "") return true;
     const local = getSessionEpoch();
-    if (!local) return true;
-    return String(local) === String(serverEpoch);
+    if (!local) {
+      localStorage.setItem(
+        APP_CONFIG.sessionKey + "_epoch",
+        String(serverEpoch)
+      );
+      return true;
+    }
+    if (String(local) === String(serverEpoch)) return true;
+
+    const s = Number(serverEpoch);
+    const l = Number(local);
+    if (Number.isFinite(s) && Number.isFinite(l) && s > l && s > 1e12) {
+      // Real password-change bump (ms timestamp newer than ours)
+      return false;
+    }
+
+    // Storage flake / demo vs worker — stay unlocked, adopt server epoch
+    localStorage.setItem(
+      APP_CONFIG.sessionKey + "_epoch",
+      String(serverEpoch)
+    );
+    return true;
   }
 
   /** Local-only unlock (demo mode). */
